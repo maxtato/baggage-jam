@@ -33,7 +33,8 @@
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:8px 13px;
     backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
   .lbl { font-size:9px; letter-spacing:.2em; color:var(--dim); text-transform:uppercase; }
-  .score-panel .val { font-size:30px; font-weight:800; line-height:1; letter-spacing:.01em; }
+  .score-panel .val { font-size:36px; font-weight:400; line-height:1; letter-spacing:-0.02em;
+    font-family:var(--display); color:var(--accent); }
   .score-panel .val.bump { animation:bump .25s ease; }
   @keyframes bump { 0%{transform:scale(1)} 40%{transform:scale(1.18)} 100%{transform:scale(1)} }
   .score-panel .mini { font-size:9px; letter-spacing:.14em; color:var(--dim); margin-top:5px; text-transform:uppercase; }
@@ -71,7 +72,7 @@
   @keyframes rise { from{opacity:0; transform:translateY(12px)} to{opacity:1; transform:none} }
   .kicker { font-size:10px; letter-spacing:.42em; color:var(--dim); text-transform:uppercase; }
   .title { font-family:var(--display); font-weight:400; font-size:clamp(42px,13vw,62px); line-height:.95;
-    transform:rotate(-2.5deg); color:var(--accent); text-shadow:2px 3px 0 rgba(0,0,0,.5); }
+    letter-spacing:-0.04em; transform:rotate(-2.5deg); color:var(--accent); }
   .title.small { font-size:clamp(30px,9vw,44px); }
   .tag { font-size:12.5px; line-height:1.5; color:var(--dim); max-width:300px; }
   .chain { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:5px;
@@ -88,7 +89,8 @@
   .best { font-size:10px; letter-spacing:.18em; color:var(--dim); text-transform:uppercase; }
   .best span { color:var(--ink); font-weight:700; }
   .final { display:flex; flex-direction:column; gap:2px; align-items:center; }
-  .final .num { font-size:48px; font-weight:800; line-height:1; }
+  .final .num { font-size:64px; font-weight:400; line-height:1; letter-spacing:-0.03em;
+    font-family:var(--display); color:var(--accent); }
 
   /* ---------- légende ---------- */
   #legend { position:absolute; z-index:6; left:12px; right:12px; bottom:12px; background:var(--panel);
