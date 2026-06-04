@@ -177,9 +177,9 @@
 
   /* repères calés sur le décor (porte de soute / chariot) */
   const SPAWN_Y = 260;      // hauteur de la porte de soute (point de chute)
-  const FLOOR_Y = 700;      // plateau du chariot
+  const FLOOR_Y = 685;      // plateau du chariot
   const BARRIER_H = 120;    // hauteur des barrières (au-delà -> ça déborde)
-  const BARRIER_TOP_Y = FLOOR_Y - BARRIER_H;   // 580
+  const BARRIER_TOP_Y = FLOOR_Y - BARRIER_H;   // 565
   const LEFT_X = 64;        // face intérieure barrière gauche
   const RIGHT_X = 396;      // face intérieure barrière droite
 
@@ -392,7 +392,6 @@
     const dw = bagW(level) * m, dh = bagH(level) * m;
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle || 0);
     if (src && (src.complete === undefined || src.complete) && (src.naturalWidth || src.width)) {
-      ctx.shadowColor = "rgba(0,0,0,0.45)"; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
       ctx.drawImage(src, -dw / 2, -dh / 2, dw, dh);
     } else { ctx.fillStyle = "#888"; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill(); }
     ctx.restore();
@@ -460,7 +459,7 @@
   function drop() {
     if (state !== "playing" || curLevel === 0 || spawnTimer > 0) return;
     const halfW = bagW(curLevel) / 2;
-    const x = Math.max(LEFT_X + halfW, Math.min(RIGHT_X - halfW, currentX));
+    const x = Math.max(halfW, Math.min(W - halfW, currentX));
     const b = makeBag(curLevel, x, SPAWN_Y);
     Body.setVelocity(b, { x: flickVX, y: 2 });
     sfxDrop();
@@ -490,7 +489,7 @@
   const localX = (e) => { const r = canvas.getBoundingClientRect(); return (e.clientX - r.left) / r.width * W; };
   function setCurX(e) {
     const halfW = curLevel > 0 ? bagW(curLevel) / 2 : bagW(1) / 2;
-    currentX = Math.max(LEFT_X + halfW, Math.min(RIGHT_X - halfW, localX(e)));
+    currentX = Math.max(halfW, Math.min(W - halfW, localX(e)));
   }
   function pushSample() { samples.push({ t: performance.now(), x: currentX }); if (samples.length > 8) samples.shift(); }
   function computeFlick() {
