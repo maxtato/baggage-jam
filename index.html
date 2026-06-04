@@ -511,11 +511,14 @@
   }
 
   /* ---------- pointeur (glisser + lâcher / lancer) ---------- */
-  let isDown = false; const samples = [];
+  let isDown = false; let dragOffsetX = 0; const samples = [];
   const localX = (e) => { const r = canvas.getBoundingClientRect(); return (e.clientX - r.left) / r.width * W; };
   function setCurX(e) {
     const halfW = curLevel > 0 ? bagW(curLevel) / 2 : bagW(1) / 2;
-    currentX = Math.max(halfW, Math.min(W - halfW, localX(e)));
+    // Drag relative to the initial pointerdown offset so the held bag never
+    // jumps under the finger — only the *delta* of subsequent movement counts.
+    const target = isDown ? localX(e) + dragOffsetX : localX(e);
+    currentX = Math.max(halfW, Math.min(W - halfW, target));
   }
   function pushSample() { samples.push({ t: performance.now(), x: currentX }); if (samples.length > 8) samples.shift(); }
   function computeFlick() {
@@ -528,9 +531,15 @@
   }
   stage.addEventListener("pointerdown", (e) => {
     if (state !== "playing" || e.target.closest(".ui-btn") || e.target.closest("button")) return;
-    isDown = true; samples.length = 0; setCurX(e); pushSample(); e.preventDefault();
+    isDown = true; samples.length = 0;
+    // Capture offset so the bag doesn't snap to the touch point
+    dragOffsetX = currentX - localX(e);
+    pushSample(); e.preventDefault();
   }, { passive: false });
-  window.addEventListener("pointermove", (e) => { if (state !== "playing") return; setCurX(e); if (isDown) pushSample(); });
+  window.addEventListener("pointermove", (e) => {
+    if (state !== "playing" || !isDown) return;
+    setCurX(e); pushSample();
+  });
   window.addEventListener("pointerup", () => { if (state === "playing" && isDown) { computeFlick(); drop(); } isDown = false; });
   window.addEventListener("pointercancel", () => { isDown = false; });
 
