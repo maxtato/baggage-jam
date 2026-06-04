@@ -24,10 +24,7 @@
   #stage { position:relative; overflow:hidden; background:#000; background-size:cover; background-position:center;
     box-shadow:0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.05); }
   #stage::after { content:""; position:absolute; inset:0; z-index:2; pointer-events:none; }
-  #stage::before { content:""; position:absolute; inset:0; z-index:2; pointer-events:none;
-    box-shadow:inset 0 0 70px 8px rgba(226,59,59,.42); opacity:0; transition:opacity .2s; }
-  #stage.danger::before { opacity:1; animation:dpulse 1s ease infinite; }
-  @keyframes dpulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+  #stage::before { content:""; position:absolute; inset:0; z-index:2; pointer-events:none; }
   canvas { position:absolute; inset:0; display:block; touch-action:none; z-index:1; }
 
   /* ---------- HUD ---------- */
@@ -271,7 +268,7 @@
 
   Events.on(engine, "collisionStart", (ev) => {
     for (const pair of ev.pairs) {
-      const a = pair.bodyA, b = pair.bodyB;
+      const a = pair.bodyA.parent, b = pair.bodyB.parent;
       if (a.lvl && b.lvl && a.lvl === b.lvl && !a.merging && !b.merging && a.lvl <= N) {
         a.merging = b.merging = true;
         mergeQueue.push([a, b]);
@@ -409,11 +406,7 @@
 
   /* ---------- rendu ---------- */
   function drawCart(now) {
-    // seuil de débordement
-    ctx.save(); ctx.setLineDash([9, 7]); ctx.lineWidth = 2;
-    ctx.strokeStyle = nearSpill ? `rgba(226,59,59,${0.55 + 0.4 * Math.sin(now / 110)})` : "rgba(255,255,255,0.15)";
-    ctx.beginPath(); ctx.moveTo(LEFT_X, BARRIER_TOP_Y); ctx.lineTo(RIGHT_X, BARRIER_TOP_Y); ctx.stroke();
-    ctx.restore();
+    // (seuil de débordement supprimé à la demande utilisateur)
   }
   function drawBag(level, x, y, angle, mul) {
     const r = RADII[level - 1];
