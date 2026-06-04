@@ -279,24 +279,25 @@
   function makeBag(level, x, y) {
     const w = bagW(level), h = bagH(level);
     const scale = Math.max(w, h);
-    const v = (VERTS[level - 1] || []).map(([px, py]) => ({ x: px * scale, y: py * scale }));
+    // Physics shape ~8% smaller than visual so adjacent bags can visually overlap
+    // a few pixels before colliding, and bags can press right up against walls.
+    const SHRINK = 0.92;
+    const v = (VERTS[level - 1] || []).map(([px, py]) => ({ x: px * scale * SHRINK, y: py * scale * SHRINK }));
     const opts = {
       restitution: 0.04, friction: 0.5, frictionStatic: 0.7,
-      frictionAir: 0.008, density: 0.0018, slop: 0.02,
+      frictionAir: 0.008, density: 0.0018, slop: 0.04,
     };
     let b;
     if (v.length >= 3) {
       b = Bodies.fromVertices(x, y, [v], opts, true);
-      // fromVertices recenters internally; if it returned a body whose dims differ
-      // wildly from expectations, fall back to chamfered rect
       if (!b || !b.vertices || b.vertices.length < 3) {
-        b = Bodies.rectangle(x, y, w, h, {
-          ...opts, chamfer: { radius: Math.min(w, h) * 0.14 },
+        b = Bodies.rectangle(x, y, w * SHRINK, h * SHRINK, {
+          ...opts, chamfer: { radius: Math.min(w, h) * 0.14 * SHRINK },
         });
       }
     } else {
-      b = Bodies.rectangle(x, y, w, h, {
-        ...opts, chamfer: { radius: Math.min(w, h) * 0.14 },
+      b = Bodies.rectangle(x, y, w * SHRINK, h * SHRINK, {
+        ...opts, chamfer: { radius: Math.min(w, h) * 0.14 * SHRINK },
       });
     }
     b.lvl = level; b.merging = false; b._born = performance.now(); b._pop = 0;
