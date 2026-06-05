@@ -110,12 +110,16 @@
     font-family:var(--display-bold); color:var(--accent); }
 
   /* ---------- légende ---------- */
-  #legend { position:absolute; z-index:6; left:12px; right:12px; bottom:12px; background:var(--panel);
-    border:1px solid var(--line); border-radius:12px; padding:10px 12px 13px;
-    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
-  .legend-head { display:flex; justify-content:space-between; align-items:center; font-size:9px;
-    letter-spacing:.2em; color:var(--dim); text-transform:uppercase; margin-bottom:9px; }
+  #legend { position:absolute; z-index:6; left:12px; right:12px; bottom:12px;
+    background:#fffaf0; color:#0a0a0b;
+    border:3px solid #0a0a0b; border-radius:14px; padding:10px 12px 13px;
+    box-shadow:0 5px 0 #0a0a0b, 0 8px 14px rgba(0,0,0,.22); }
+  .legend-head { display:flex; justify-content:space-between; align-items:center; font-size:11px;
+    letter-spacing:.18em; color:#0a0a0b; text-transform:uppercase; margin-bottom:9px;
+    font-family:var(--display); font-weight:700; }
   .legend-head .ui-btn { width:24px; height:24px; font-size:15px; }
+  #legend .chain { border:2px solid #0a0a0b; background:rgba(10,10,11,.04); }
+  #legend .chain .arr { color:#0a0a0b; font-weight:700; }
 </style>
 </head>
 <body>
