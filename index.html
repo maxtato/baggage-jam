@@ -121,6 +121,26 @@
   .legend-head .ui-btn { width:24px; height:24px; font-size:15px; }
   #legend .chain { border:2px solid #0a0a0b; background:rgba(10,10,11,.04); }
   #legend .chain .arr { color:#0a0a0b; font-weight:700; }
+
+  /* ---------- pause ---------- */
+  .pause-rows { width:100%; max-width:300px; display:flex; flex-direction:column; gap:8px; }
+  .pause-row { display:flex; align-items:center; justify-content:space-between; gap:12px;
+    background:#fffaf0; color:#0a0a0b; border:3px solid #0a0a0b; border-radius:12px;
+    padding:8px 14px; box-shadow:0 4px 0 #0a0a0b, 0 6px 12px rgba(0,0,0,.2); }
+  .pause-row-label { font-family:var(--display); font-weight:700; font-size:13px;
+    letter-spacing:.04em; text-transform:uppercase; }
+  .pause-row-val { font-family:var(--display-bold); font-weight:800; font-size:22px;
+    color:#0a0a0b; letter-spacing:-0.03em; line-height:1; }
+  .pause-row .ui-btn { width:34px; height:34px; box-shadow:0 3px 0 #0a0a0b; }
+  .big-btn.small-btn { font-size:16px; padding:10px 30px;
+    box-shadow:0 4px 0 #0a0a0b, 0 8px 16px rgba(0,0,0,.35); }
+  .big-btn.small-btn:active { transform:translateY(3px); box-shadow:0 1px 0 #0a0a0b, 0 4px 10px rgba(0,0,0,.3); }
+  .pause-row-val.saved { animation:saved-flash .55s ease; }
+  @keyframes saved-flash {
+    0% { color:#0a0a0b; transform:scale(1); }
+    30% { color:#2da34b; transform:scale(1.18); }
+    100% { color:#0a0a0b; transform:scale(1); }
+  }
 </style>
 </head>
 <body>
@@ -137,7 +157,9 @@
       </div>
       <div class="hud-right">
         <div class="btns">
-          <button class="ui-btn" id="mute" aria-label="Son"></button>
+          <button class="ui-btn" id="pause" aria-label="Pause">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+          </button>
           <button class="ui-btn" id="info" aria-label="Aide">i</button>
         </div>
         <div class="panel next-panel">
@@ -171,6 +193,29 @@
         <div class="final"><span class="lbl">Score final</span><span id="finalScore" class="num">0</span></div>
         <p class="best">Record — <span id="bestOver">0</span></p>
         <button id="replay" class="big-btn">Rejouer</button>
+      </div>
+    </div>
+
+    <div id="pauseMenu" class="overlay hidden">
+      <div class="menu-card">
+        <div class="kicker">En pause</div>
+        <h1 class="title small">Pause</h1>
+        <div class="pause-rows">
+          <div class="pause-row">
+            <span class="pause-row-label">Son</span>
+            <button id="pauseSound" class="ui-btn" aria-label="Son"></button>
+          </div>
+          <div class="pause-row">
+            <span class="pause-row-label">Score actuel</span>
+            <span class="pause-row-val" id="pauseScore">0</span>
+          </div>
+          <div class="pause-row">
+            <span class="pause-row-label">Record</span>
+            <span class="pause-row-val" id="pauseBest">0</span>
+          </div>
+        </div>
+        <button id="pauseSave" class="big-btn small-btn">Sauvegarder</button>
+        <button id="pauseResume" class="big-btn">Reprendre</button>
       </div>
     </div>
   </div>
@@ -239,8 +284,9 @@
   const ctx = canvas.getContext("2d");
   const scoreEl = $("score"), bestHud = $("bestHud"), livesEl = $("lives");
   const nextImg = $("nextImg");
-  const menu = $("menu"), over = $("over"), legend = $("legend");
+  const menu = $("menu"), over = $("over"), legend = $("legend"), pauseMenu = $("pauseMenu");
   const bestMenu = $("bestMenu"), bestOver = $("bestOver"), finalScore = $("finalScore");
+  const pauseScoreEl = $("pauseScore"), pauseBestEl = $("pauseBest");
 
   /* ---------- images ---------- */
   const IMG = ASSETS.bags.map((src) => { const i = new Image(); i.src = src; return i; });
@@ -566,7 +612,7 @@
     currentX = W / 2;
     nextLevel = randDrop(); spawnCurrent();
     state = "playing";
-    menu.classList.add("hidden"); over.classList.add("hidden"); legend.classList.add("hidden");
+    menu.classList.add("hidden"); over.classList.add("hidden"); legend.classList.add("hidden"); pauseMenu.classList.add("hidden");
   }
   function gameOver() {
     state = "over"; curLevel = 0; nearSpill = false; stage.classList.remove("danger");
@@ -610,12 +656,34 @@
   /* ---------- boutons ---------- */
   const SPK_ON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a4 4 0 0 1 0 7"/></svg>';
   const SPK_OFF = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>';
-  const muteBtn = $("mute"); muteBtn.innerHTML = SPK_ON;
-  muteBtn.addEventListener("click", (e) => { e.stopPropagation(); muted = !muted; muteBtn.innerHTML = muted ? SPK_OFF : SPK_ON; });
+  const pauseSoundBtn = $("pauseSound");
+  function refreshSoundIcon() { pauseSoundBtn.innerHTML = muted ? SPK_OFF : SPK_ON; }
+  refreshSoundIcon();
+  pauseSoundBtn.addEventListener("click", (e) => { e.stopPropagation(); muted = !muted; refreshSoundIcon(); });
   $("info").addEventListener("click", (e) => { e.stopPropagation(); legend.classList.toggle("hidden"); });
   $("legendClose").addEventListener("click", (e) => { e.stopPropagation(); legend.classList.add("hidden"); });
   $("play").addEventListener("click", startGame);
   $("replay").addEventListener("click", startGame);
+  $("pause").addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (state !== "playing") return;
+    state = "paused";
+    pauseScoreEl.textContent = score;
+    pauseBestEl.textContent = best;
+    pauseMenu.classList.remove("hidden");
+  });
+  $("pauseResume").addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (state !== "paused") return;
+    state = "playing";
+    pauseMenu.classList.add("hidden");
+  });
+  $("pauseSave").addEventListener("click", (e) => {
+    e.stopPropagation();
+    setBest();
+    pauseBestEl.textContent = best;
+    pauseBestEl.classList.remove("saved"); void pauseBestEl.offsetWidth; pauseBestEl.classList.add("saved");
+  });
 
   /* ---------- chaîne de fusion ---------- */
   function buildChain(el) {
