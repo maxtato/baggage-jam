@@ -8,14 +8,14 @@
 <title>EXCÉDENT — Yello Arcade</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Fredoka:wght@400;500;600;700&family=Permanent+Marker&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Quicksand:wght@400;500;600;700&family=Permanent+Marker&display=swap" rel="stylesheet" />
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
     --bg:#0a0a0b; --ink:#ececee; --dim:#8c8c93; --line:rgba(255,255,255,.14);
     --panel:rgba(10,10,12,.72); --danger:#e23b3b; --accent:#ff7a2e; --accent-hot:#ffd23f;
     --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-    --display:'Fredoka','Permanent Marker',var(--mono);
+    --display:'Quicksand','Permanent Marker',var(--mono);
     --display-script:'Permanent Marker',var(--mono);
   }
   html, body { height:100%; background:var(--bg); color:var(--ink); font-family:var(--mono);
@@ -501,7 +501,7 @@
         s = t < 0.6 ? 1.35 * (t / 0.6) : 1 + (1.35 - 1) * (1 - (t - 0.6) / 0.4);
       }
       ctx.globalAlpha = Math.max(0, fl.life);
-      ctx.font = `700 ${Math.round(30 * s)}px 'Fredoka', 'Permanent Marker', sans-serif`;
+      ctx.font = `700 ${Math.round(30 * s)}px 'Quicksand', 'Permanent Marker', sans-serif`;
       // Black stroke for pop
       ctx.lineWidth = 5; ctx.strokeStyle = "#0a0a0b"; ctx.lineJoin = "round";
       ctx.strokeText(fl.t, fl.x, fl.y);
