@@ -8,7 +8,7 @@
 <title>EXCÉDENT — Yello Arcade</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Quicksand:wght@400;500;600;700&family=Permanent+Marker&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Quicksand:wght@400;500;600;700&family=Outfit:wght@600;700;800;900&family=Permanent+Marker&display=swap" rel="stylesheet" />
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -16,6 +16,7 @@
     --panel:rgba(10,10,12,.72); --danger:#e23b3b; --accent:#ff7a2e; --accent-hot:#ffd23f;
     --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
     --display:'Quicksand','Permanent Marker',var(--mono);
+    --display-bold:'Outfit','Quicksand',var(--mono);
     --display-script:'Permanent Marker',var(--mono);
   }
   html, body { height:100%; background:var(--bg); color:var(--ink); font-family:var(--mono);
@@ -35,8 +36,8 @@
     box-shadow:0 5px 0 #0a0a0b, 0 8px 14px rgba(0,0,0,.22); }
   .lbl { font-size:13px; letter-spacing:.04em; color:#0a0a0b; text-transform:uppercase;
     font-family:var(--display); font-weight:700; }
-  .score-panel .val { font-size:48px; font-weight:700; line-height:.9; letter-spacing:.01em;
-    font-family:var(--display); color:var(--accent);
+  .score-panel .val { font-size:48px; font-weight:900; line-height:.9; letter-spacing:-0.02em;
+    font-family:var(--display-bold); color:var(--accent);
     -webkit-text-stroke:3px #0a0a0b;
     text-shadow:0 4px 0 #0a0a0b;
     transform-origin:50% 60%;
@@ -88,8 +89,8 @@
   .kicker { font-size:11px; letter-spacing:.32em; color:var(--accent); text-transform:uppercase;
     font-family:var(--display); font-weight:700;
     -webkit-text-stroke:1.5px #0a0a0b; text-shadow:0 2px 0 #0a0a0b; }
-  .title { font-family:var(--display); font-weight:700; font-size:clamp(56px,16vw,86px); line-height:.9;
-    letter-spacing:.01em; transform:rotate(-3deg); color:var(--accent);
+  .title { font-family:var(--display-bold); font-weight:900; font-size:clamp(56px,16vw,86px); line-height:.9;
+    letter-spacing:-0.02em; transform:rotate(-3deg); color:var(--accent);
     -webkit-text-stroke:4px #0a0a0b;
     text-shadow:0 6px 0 #0a0a0b, 0 8px 20px rgba(0,0,0,.55); }
   .title.small { font-size:clamp(30px,9vw,44px); }
@@ -111,8 +112,8 @@
     color:var(--ink); text-transform:uppercase; }
   .best span { color:var(--accent-hot); font-weight:700; }
   .final { display:flex; flex-direction:column; gap:2px; align-items:center; }
-  .final .num { font-size:64px; font-weight:400; line-height:1; letter-spacing:-0.03em;
-    font-family:var(--display); color:var(--accent);
+  .final .num { font-size:64px; font-weight:900; line-height:1; letter-spacing:-0.03em;
+    font-family:var(--display-bold); color:var(--accent);
     -webkit-text-stroke:4px #0a0a0b;
     text-shadow:0 6px 0 #0a0a0b, 0 8px 18px rgba(0,0,0,.5); }
 
