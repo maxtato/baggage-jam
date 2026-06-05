@@ -8,7 +8,7 @@
 <title>EXCÉDENT — Yello Arcade</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Quicksand:wght@400;500;600;700&family=Outfit:wght@600;700;800;900&family=Permanent+Marker&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Quicksand:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&family=Permanent+Marker&display=swap" rel="stylesheet" />
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -16,7 +16,7 @@
     --panel:rgba(10,10,12,.72); --danger:#e23b3b; --accent:#ff7a2e; --accent-hot:#ffd23f;
     --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
     --display:'Quicksand','Permanent Marker',var(--mono);
-    --display-bold:'Outfit','Quicksand',var(--mono);
+    --display-bold:'Inter','Quicksand',system-ui,sans-serif;
     --display-script:'Permanent Marker',var(--mono);
   }
   html, body { height:100%; background:var(--bg); color:var(--ink); font-family:var(--mono);
@@ -36,19 +36,15 @@
     box-shadow:0 5px 0 #0a0a0b, 0 8px 14px rgba(0,0,0,.22); }
   .lbl { font-size:13px; letter-spacing:.04em; color:#0a0a0b; text-transform:uppercase;
     font-family:var(--display); font-weight:700; }
-  .score-panel .val { font-size:48px; font-weight:900; line-height:.9; letter-spacing:-0.02em;
-    font-family:var(--display-bold); color:var(--accent);
-    -webkit-text-stroke:3px #0a0a0b;
-    text-shadow:0 4px 0 #0a0a0b;
+  .score-panel .val { font-size:46px; font-weight:800; line-height:.9; letter-spacing:-0.03em;
+    font-family:var(--display-bold); color:#0a0a0b;
     transform-origin:50% 60%;
     transition:color .3s ease; }
-  .score-panel .val.bump { animation:bump .5s cubic-bezier(.34,1.56,.64,1); }
+  .score-panel .val.bump { animation:bump .42s cubic-bezier(.34,1.56,.64,1); }
   @keyframes bump {
-    0% { transform:scale(1) rotate(0deg); color:var(--accent); }
-    25% { transform:scale(1.7) rotate(-5deg); color:var(--accent-hot);
-          text-shadow:0 4px 0 #0a0a0b, 0 0 22px rgba(255,210,63,.9); }
-    60% { transform:scale(.94) rotate(3deg); }
-    100% { transform:scale(1) rotate(0deg); color:var(--accent); }
+    0% { transform:scale(1); color:#0a0a0b; }
+    30% { transform:scale(1.35); color:var(--accent); }
+    100% { transform:scale(1); color:#0a0a0b; }
   }
   .score-panel .mini { font-size:11px; letter-spacing:.02em; color:#5a5a5a; margin-top:6px;
     text-transform:uppercase; font-family:var(--display); font-weight:600; }
@@ -89,10 +85,8 @@
   .kicker { font-size:11px; letter-spacing:.32em; color:var(--accent); text-transform:uppercase;
     font-family:var(--display); font-weight:700;
     -webkit-text-stroke:1.5px #0a0a0b; text-shadow:0 2px 0 #0a0a0b; }
-  .title { font-family:var(--display-bold); font-weight:900; font-size:clamp(56px,16vw,86px); line-height:.9;
-    letter-spacing:-0.02em; transform:rotate(-3deg); color:var(--accent);
-    -webkit-text-stroke:4px #0a0a0b;
-    text-shadow:0 6px 0 #0a0a0b, 0 8px 20px rgba(0,0,0,.55); }
+  .title { font-family:var(--display-bold); font-weight:800; font-size:clamp(52px,14vw,76px); line-height:.95;
+    letter-spacing:-0.03em; color:var(--accent); }
   .title.small { font-size:clamp(30px,9vw,44px); }
   .tag { font-family:var(--display); font-weight:500; font-size:14px; line-height:1.45;
     color:var(--ink); max-width:300px; }
@@ -112,10 +106,8 @@
     color:var(--ink); text-transform:uppercase; }
   .best span { color:var(--accent-hot); font-weight:700; }
   .final { display:flex; flex-direction:column; gap:2px; align-items:center; }
-  .final .num { font-size:64px; font-weight:900; line-height:1; letter-spacing:-0.03em;
-    font-family:var(--display-bold); color:var(--accent);
-    -webkit-text-stroke:4px #0a0a0b;
-    text-shadow:0 6px 0 #0a0a0b, 0 8px 18px rgba(0,0,0,.5); }
+  .final .num { font-size:60px; font-weight:800; line-height:1; letter-spacing:-0.03em;
+    font-family:var(--display-bold); color:var(--accent); }
 
   /* ---------- légende ---------- */
   #legend { position:absolute; z-index:6; left:12px; right:12px; bottom:12px; background:var(--panel);
