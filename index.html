@@ -215,6 +215,7 @@
           </div>
         </div>
         <button id="pauseSave" class="big-btn small-btn">Sauvegarder</button>
+        <button id="pauseRestart" class="big-btn small-btn">Recommencer</button>
         <button id="pauseResume" class="big-btn">Reprendre</button>
       </div>
     </div>
@@ -716,6 +717,7 @@
     pauseBestEl.textContent = best;
     pauseBestEl.classList.remove("saved"); void pauseBestEl.offsetWidth; pauseBestEl.classList.add("saved");
   });
+  $("pauseRestart").addEventListener("click", (e) => { e.stopPropagation(); startGame(); });
 
   /* ---------- chaîne de fusion ---------- */
   function buildChain(el) {
