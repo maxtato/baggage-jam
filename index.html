@@ -327,6 +327,12 @@
   const world = engine.world;
 
   const wallOpt = { isStatic: true, restitution: 0, friction: 0.35 };
+  const ZERO_V = { x: 0, y: 0 };
+  const SQUASH_MIN_IMPACT = 1.3;
+  const SQUASH_MAX_AMP = 0.13;
+  const SQUASH_DECAY = 7;
+  const SQUASH_FREQ = 22;
+  const SQUASH_LIFE_MS = 600;
   // barrières COURTES (du plateau jusqu'à BARRIER_TOP_Y), épaisseur vers l'extérieur
   Composite.add(world, [
     Bodies.rectangle(LEFT_X - 15, (BARRIER_TOP_Y + FLOOR_Y) / 2, 30, FLOOR_Y - BARRIER_TOP_Y + 2, wallOpt),
@@ -336,12 +342,22 @@
   ]);
 
   Events.on(engine, "collisionStart", (ev) => {
+    const tNow = performance.now();
     for (const pair of ev.pairs) {
       const a = pair.bodyA.parent, b = pair.bodyB.parent;
       if (a.lvl && b.lvl && a.lvl === b.lvl && !a.merging && !b.merging && a.lvl <= N) {
         a.merging = b.merging = true;
         mergeQueue.push([a, b]);
       }
+      const n = pair.collision && pair.collision.normal;
+      if (!n) continue;
+      const va = a.velocity || ZERO_V, vb = b.velocity || ZERO_V;
+      const relV = (va.x - vb.x) * n.x + (va.y - vb.y) * n.y;
+      const impact = Math.abs(relV);
+      if (impact < SQUASH_MIN_IMPACT) continue;
+      const amp = Math.min(SQUASH_MAX_AMP, (impact - SQUASH_MIN_IMPACT) * 0.022 + 0.025);
+      if (a.lvl) a._sq = { amp, t0: tNow, nx: n.x, ny: n.y };
+      if (b.lvl) b._sq = { amp, t0: tNow, nx: -n.x, ny: -n.y };
     }
   });
 
@@ -353,8 +369,8 @@
     const SHRINK = 0.92;
     const v = (VERTS[level - 1] || []).map(([px, py]) => ({ x: px * scale * SHRINK, y: py * scale * SHRINK }));
     const opts = {
-      restitution: 0.04, friction: 0.5, frictionStatic: 0.7,
-      frictionAir: 0.008, density: 0.0018, slop: 0.04,
+      restitution: 0.09, friction: 0.5, frictionStatic: 0.7,
+      frictionAir: 0.010, density: 0.0018, slop: 0.04,
     };
     let b;
     if (v.length >= 3) {
@@ -494,12 +510,28 @@
   function drawCart(now) {
     // (seuil de débordement supprimé à la demande utilisateur)
   }
-  function drawBag(level, x, y, angle, mul) {
+  function drawBag(level, x, y, angle, mul, squash, now) {
     const r = RADII[level - 1];
     const src = BAKED[level - 1] || IMG[level - 1];
     const m = mul || 1;
-    const dw = bagW(level) * m, dh = bagH(level) * m;
-    ctx.save(); ctx.translate(x, y); ctx.rotate(angle || 0);
+    const dw = bagW(level), dh = bagH(level);
+    let sx = m, sy = m;
+    if (squash && now) {
+      const age = (now - squash.t0) / 1000;
+      if (age < SQUASH_LIFE_MS / 1000) {
+        const env = Math.exp(-age * SQUASH_DECAY);
+        const f = squash.amp * env * Math.cos(age * SQUASH_FREQ);
+        const a = angle || 0, ca = Math.cos(-a), sa = Math.sin(-a);
+        const lnx = squash.nx * ca - squash.ny * sa;
+        const lny = squash.nx * sa + squash.ny * ca;
+        if (Math.abs(lny) >= Math.abs(lnx)) {
+          sy = m * (1 - f); sx = m * (1 + f * 0.55);
+        } else {
+          sx = m * (1 - f); sy = m * (1 + f * 0.55);
+        }
+      }
+    }
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle || 0); ctx.scale(sx, sy);
     if (src && (src.complete === undefined || src.complete) && (src.naturalWidth || src.width)) {
       ctx.drawImage(src, -dw / 2, -dh / 2, dw, dh);
     } else { ctx.fillStyle = "#888"; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill(); }
@@ -563,7 +595,7 @@
     for (const b of allBags()) {
       let mul = 1;
       if (b._pop) { const age = now - b._pop; if (age < 170) mul = 1 + 0.22 * (1 - age / 170); else b._pop = 0; }
-      drawBag(b.lvl, b.position.x, b.position.y, b.angle, mul);
+      drawBag(b.lvl, b.position.x, b.position.y, b.angle, mul, b._sq, now);
     }
     if (curLevel > 0 && state === "playing") {
       drawGuide();
