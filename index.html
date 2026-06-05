@@ -353,10 +353,22 @@
   function burst(x, y, n, big) {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, sp = (big ? 3.4 : 1.8) * (0.5 + Math.random());
-      parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.2, life: 1, r: (big ? 3 : 2) * (0.6 + Math.random()) });
+      parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.2, life: 1, r: (big ? 3 : 2) * (0.6 + Math.random()), kind: "spark" });
     }
   }
-  const floatText = (t, x, y) => floats.push({ t, x, y, life: 1 });
+  function burstCoins(x, y, n) {
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.9;
+      const sp = 3.5 + Math.random() * 3;
+      parts.push({
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 1.2, r: 4 + Math.random() * 2.5,
+        rot: Math.random() * Math.PI * 2, rotV: (Math.random() - 0.5) * 0.5,
+        kind: "coin",
+      });
+    }
+  }
+  const floatText = (t, x, y) => floats.push({ t, x, y, life: 1, born: performance.now() });
   const flash = (now) => { flashT = now; };
   const shake = () => { shakeT = performance.now(); };
 
@@ -364,11 +376,15 @@
     const f = Math.min(2, dt * 60);
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i];
-      p.x += p.vx * f; p.y += p.vy * f; p.vy += 0.14 * f; p.life -= dt * 2.1;
+      p.x += p.vx * f; p.y += p.vy * f;
+      // Coins fall a touch slower with stronger gravity feel
+      p.vy += (p.kind === "coin" ? 0.22 : 0.14) * f;
+      if (p.kind === "coin") p.rot += p.rotV * f;
+      p.life -= dt * (p.kind === "coin" ? 1.4 : 2.1);
       if (p.life <= 0) parts.splice(i, 1);
     }
     for (let i = floats.length - 1; i >= 0; i--) {
-      const fl = floats[i]; fl.y -= 0.6 * f; fl.life -= dt * 1.1;
+      const fl = floats[i]; fl.y -= 0.55 * f; fl.life -= dt * 0.95;
       if (fl.life <= 0) floats.splice(i, 1);
     }
   }
@@ -390,11 +406,11 @@
         nb._pop = now;
         score += SCORES[lvl]; updateScore();
         floatText("+" + SCORES[lvl], mx, my);
-        burst(mx, my, 8, false); sfxMerge(lvl + 1);
-        if (lvl + 1 === N) { burst(mx, my, 18, true); sfxBig(); flash(now); }
+        burst(mx, my, 6, false); burstCoins(mx, my, 4 + Math.min(8, lvl)); sfxMerge(lvl + 1);
+        if (lvl + 1 === N) { burst(mx, my, 18, true); burstCoins(mx, my, 18); sfxBig(); flash(now); }
       } else {
         score += 120; updateScore();
-        floatText("+120", mx, my); burst(mx, my, 24, true); sfxBig(); flash(now);
+        floatText("+120", mx, my); burst(mx, my, 24, true); burstCoins(mx, my, 20); sfxBig(); flash(now);
       }
     }
   }
@@ -447,17 +463,44 @@
   }
   function drawParticles() {
     for (const p of parts) {
-      ctx.save(); ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = "#fff";
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill(); ctx.restore();
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.life);
+      if (p.kind === "coin") {
+        // Squashed disc with stroke for coin spin look
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        const w = p.r * 1.8;
+        const h = p.r * 1.8 * Math.abs(Math.cos(p.rot * 1.5));
+        ctx.fillStyle = "#ffd23f";
+        ctx.beginPath(); ctx.ellipse(0, 0, w, Math.max(h, p.r * 0.5), 0, 0, 7); ctx.fill();
+        ctx.strokeStyle = "#7a5a00"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.ellipse(0, 0, w, Math.max(h, p.r * 0.5), 0, 0, 7); ctx.stroke();
+      } else {
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+      }
+      ctx.restore();
     }
   }
   function drawFloats() {
-    ctx.save(); ctx.font = "800 17px 'JetBrains Mono', monospace";
+    ctx.save();
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    const now = performance.now();
     for (const fl of floats) {
+      const age = now - (fl.born || now);
+      // Bouncy scale-in: 0 → 1.35 → 1.0 in 240ms
+      let s = 1;
+      if (age < 240) {
+        const t = age / 240;
+        s = t < 0.6 ? 1.35 * (t / 0.6) : 1 + (1.35 - 1) * (1 - (t - 0.6) / 0.4);
+      }
       ctx.globalAlpha = Math.max(0, fl.life);
-      ctx.fillStyle = "#0a0a0b"; ctx.fillText(fl.t, fl.x + 1, fl.y + 1);
-      ctx.fillStyle = "#fff"; ctx.fillText(fl.t, fl.x, fl.y);
+      ctx.font = `400 ${Math.round(30 * s)}px 'Luckiest Guy', 'Permanent Marker', sans-serif`;
+      // Black stroke for pop
+      ctx.lineWidth = 5; ctx.strokeStyle = "#0a0a0b"; ctx.lineJoin = "round";
+      ctx.strokeText(fl.t, fl.x, fl.y);
+      // Yellow fill
+      ctx.fillStyle = "#ffd23f"; ctx.fillText(fl.t, fl.x, fl.y);
     }
     ctx.restore();
   }
