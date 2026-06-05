@@ -13,7 +13,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
     --bg:#0a0a0b; --ink:#ececee; --dim:#8c8c93; --line:rgba(255,255,255,.14);
-    --panel:rgba(10,10,12,.72); --danger:#e23b3b; --accent:#f2f2f4;
+    --panel:rgba(10,10,12,.72); --danger:#e23b3b; --accent:#ff7a2e; --accent-hot:#ffd23f;
     --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
     --display:'Permanent Marker',var(--mono);
   }
@@ -34,9 +34,14 @@
     backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
   .lbl { font-size:9px; letter-spacing:.2em; color:var(--dim); text-transform:uppercase; }
   .score-panel .val { font-size:36px; font-weight:400; line-height:1; letter-spacing:-0.02em;
-    font-family:var(--display); color:var(--accent); }
-  .score-panel .val.bump { animation:bump .25s ease; }
-  @keyframes bump { 0%{transform:scale(1)} 40%{transform:scale(1.18)} 100%{transform:scale(1)} }
+    font-family:var(--display); color:var(--accent); transition:color .3s ease; }
+  .score-panel .val.bump { animation:bump .42s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes bump {
+    0% { transform:scale(1) rotate(0deg); color:var(--accent); }
+    30% { transform:scale(1.55) rotate(-4deg); color:var(--accent-hot); text-shadow:0 0 14px rgba(255,210,63,.7); }
+    65% { transform:scale(.96) rotate(2deg); }
+    100% { transform:scale(1) rotate(0deg); color:var(--accent); text-shadow:none; }
+  }
   .score-panel .mini { font-size:9px; letter-spacing:.14em; color:var(--dim); margin-top:5px; text-transform:uppercase; }
   .score-panel .mini span { color:var(--ink); font-weight:700; }
   .lives { display:flex; gap:4px; margin-top:6px; }
@@ -204,7 +209,7 @@
     [[-0.5013,-0.217],[-0.5013,0.1948],[-0.4756,0.232],[0.259,0.3754],[0.4879,0.1904],[0.4905,-0.217],[0.4631,-0.2603],[-0.2188,-0.3518]],
   ];
   const DROP_POOL = [1, 1, 1, 1, 2, 2, 2, 3, 3, 4, 5, 6];
-  const SCORES = { 1: 1, 2: 3, 3: 6, 4: 10, 5: 15, 6: 21, 7: 28, 8: 36, 9: 45 };
+  const SCORES = { 1: 5, 2: 15, 3: 35, 4: 75, 5: 150, 6: 300, 7: 600, 8: 1200, 9: 2500 };
   const N = RADII.length;
   // Largest side = 2*r; w/h derived from aspect ratio so physics matches visual.
   function bagW(level) { const r = RADII[level - 1], a = ASPECTS[level - 1]; return a >= 1 ? 2 * r : 2 * r * a; }
