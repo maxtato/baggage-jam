@@ -205,6 +205,10 @@
             <button id="pauseSound" class="ui-btn" aria-label="Son"></button>
           </div>
           <div class="pause-row">
+            <span class="pause-row-label">Guide</span>
+            <button id="pauseGuide" class="ui-btn" aria-label="Guide"></button>
+          </div>
+          <div class="pause-row">
             <span class="pause-row-label">Score actuel</span>
             <span class="pause-row-val" id="pauseScore">0</span>
           </div>
@@ -396,6 +400,8 @@
 
   /* ---------- audio ---------- */
   let actx = null, muted = false;
+  let showGuide = true;
+  try { showGuide = localStorage.getItem("excedent_guide") !== "0"; } catch (e) {}
   function ensureAudio() {
     if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
     if (actx && actx.state === "suspended") actx.resume();
@@ -541,9 +547,18 @@
     ctx.restore();
   }
   function drawGuide() {
+    if (!showGuide) return;
     const halfH = bagH(curLevel) / 2;
-    ctx.save(); ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.setLineDash([4, 9]); ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(currentX, SPAWN_Y + halfH); ctx.lineTo(currentX, FLOOR_Y); ctx.stroke();
+    const top = SPAWN_Y + halfH, bot = FLOOR_Y;
+    ctx.save();
+    ctx.lineWidth = 5; ctx.lineCap = "butt";
+    ctx.setLineDash([10, 10]);
+    ctx.strokeStyle = "#ffd23f";
+    ctx.lineDashOffset = 0;
+    ctx.beginPath(); ctx.moveTo(currentX, top); ctx.lineTo(currentX, bot); ctx.stroke();
+    ctx.strokeStyle = "#0a0a0b";
+    ctx.lineDashOffset = 10;
+    ctx.beginPath(); ctx.moveTo(currentX, top); ctx.lineTo(currentX, bot); ctx.stroke();
     ctx.restore();
   }
   function drawParticles() {
@@ -695,6 +710,17 @@
   function refreshSoundIcon() { pauseSoundBtn.innerHTML = muted ? SPK_OFF : SPK_ON; }
   refreshSoundIcon();
   pauseSoundBtn.addEventListener("click", (e) => { e.stopPropagation(); muted = !muted; refreshSoundIcon(); });
+  const GUIDE_ON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="3" x2="12" y2="5"/><line x1="12" y1="9" x2="12" y2="11"/><line x1="12" y1="15" x2="12" y2="17"/><line x1="12" y1="21" x2="12" y2="21"/></svg>';
+  const GUIDE_OFF = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="4" y1="20" x2="20" y2="4"/><line x1="12" y1="3" x2="12" y2="5" opacity=".4"/><line x1="12" y1="9" x2="12" y2="11" opacity=".4"/><line x1="12" y1="15" x2="12" y2="17" opacity=".4"/></svg>';
+  const pauseGuideBtn = $("pauseGuide");
+  function refreshGuideIcon() { pauseGuideBtn.innerHTML = showGuide ? GUIDE_ON : GUIDE_OFF; }
+  refreshGuideIcon();
+  pauseGuideBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showGuide = !showGuide;
+    refreshGuideIcon();
+    try { localStorage.setItem("excedent_guide", showGuide ? "1" : "0"); } catch (err) {}
+  });
   $("info").addEventListener("click", (e) => { e.stopPropagation(); legend.classList.toggle("hidden"); });
   $("legendClose").addEventListener("click", (e) => { e.stopPropagation(); legend.classList.add("hidden"); });
   $("play").addEventListener("click", startGame);
