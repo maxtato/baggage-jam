@@ -333,7 +333,7 @@
   engine.constraintIterations = 4;
   const world = engine.world;
 
-  const wallOpt = { isStatic: true, restitution: 0, friction: 1.2, frictionStatic: 1.6 };
+  const wallOpt = { isStatic: true, restitution: 0, friction: 0.9, frictionStatic: 1.1 };
   const ZERO_V = { x: 0, y: 0 };
   const SQUASH_MIN_IMPACT = 1.5;
   const SQUASH_MAX_AMP = 0.075;
@@ -376,9 +376,9 @@
     const SHRINK = 0.92;
     const v = (VERTS[level - 1] || []).map(([px, py]) => ({ x: px * scale * SHRINK, y: py * scale * SHRINK }));
     const opts = {
-      restitution: 0.035, friction: 0.95, frictionStatic: 1.4,
-      frictionAir: 0.009, density: 0.0014 * Math.pow(1.16, level - 1), slop: 0.035,
-      sleepThreshold: 40,
+      restitution: 0.035, friction: 0.7, frictionStatic: 0.95,
+      frictionAir: 0.008, density: 0.0014 * Math.pow(1.16, level - 1), slop: 0.04,
+      sleepThreshold: 110,
     };
     let b;
     if (v.length >= 3) {
