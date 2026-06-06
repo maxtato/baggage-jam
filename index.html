@@ -74,6 +74,14 @@
   .overlay { position:absolute; inset:0; z-index:5; display:flex; align-items:center; justify-content:center;
     background:rgba(7,7,9,.82); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
     animation:fade .3s ease; padding:20px; }
+  #menu { background:#f3ebd9; backdrop-filter:none; -webkit-backdrop-filter:none; }
+  #menu .tag,
+  #menu .hint,
+  #menu .best { color:#1a1a1c; }
+  #menu .best span { color:#a85a00; }
+  #menu .chain { background:rgba(10,10,11,.05); border:2px solid #0a0a0b; }
+  #menu .chain .arr { color:#0a0a0b; font-weight:700; }
+  #menu .logo { filter:drop-shadow(0 6px 14px rgba(0,0,0,.18)); }
   .hidden { display:none !important; }
   @keyframes fade { from{opacity:0} to{opacity:1} }
   .menu-card { width:100%; max-width:360px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:14px; }
