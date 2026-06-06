@@ -322,11 +322,13 @@
   let mergeQueue = [];
 
   /* ---------- moteur physique ---------- */
-  const engine = Engine.create();
+  const engine = Engine.create({ enableSleeping: true });
   engine.gravity.y = 1.6;
+  engine.positionIterations = 8;
+  engine.velocityIterations = 6;
   const world = engine.world;
 
-  const wallOpt = { isStatic: true, restitution: 0, friction: 0.92, frictionStatic: 1.1 };
+  const wallOpt = { isStatic: true, restitution: 0, friction: 1.0, frictionStatic: 1.4 };
   const ZERO_V = { x: 0, y: 0 };
   const SQUASH_MIN_IMPACT = 1.5;
   const SQUASH_MAX_AMP = 0.075;
@@ -369,8 +371,9 @@
     const SHRINK = 0.92;
     const v = (VERTS[level - 1] || []).map(([px, py]) => ({ x: px * scale * SHRINK, y: py * scale * SHRINK }));
     const opts = {
-      restitution: 0.02, friction: 0.78, frictionStatic: 0.95,
-      frictionAir: 0.012, density: 0.0014 + (level - 1) * 0.00022, slop: 0.04,
+      restitution: 0.02, friction: 0.9, frictionStatic: 1.5,
+      frictionAir: 0.013, density: 0.0011 + (level - 1) * 0.00038, slop: 0.04,
+      sleepThreshold: 50,
     };
     let b;
     if (v.length >= 3) {
