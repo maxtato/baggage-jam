@@ -307,7 +307,8 @@
   const pauseScoreEl = $("pauseScore"), pauseBestEl = $("pauseBest");
 
   /* ---------- images ---------- */
-  const IMG = ASSETS.bags.map((src) => { const i = new Image(); i.src = src; return i; });
+  const IMG = ASSETS.bags.map(() => new Image());
+  const IMG_REQUESTED = new Array(IMG.length).fill(false);
   // Pre-bake each bag to a 4096px canvas so per-frame drawImage downscales
   // from a high-quality source. Higher than the canvas dpr ceiling so we keep
   // sharp pixels when the user pinch-zooms.
@@ -323,9 +324,45 @@
     cx.drawImage(img, 0, 0, w, h);
     BAKED[i] = c;
   }
-  IMG.forEach((img, i) => { if (img.complete) bakeImage(i); else img.addEventListener("load", () => bakeImage(i)); });
+  function requestBag(i) {
+    if (IMG_REQUESTED[i] || i < 0 || i >= IMG.length) return;
+    IMG_REQUESTED[i] = true;
+    const img = IMG[i];
+    img.addEventListener("load", () => bakeImage(i));
+    img.src = ASSETS.bags[i];
+  }
+  function preloadEssentials() {
+    // Initial spawn candidates + a small headroom (L1..L3)
+    for (let i = 0; i < Math.min(3, IMG.length); i++) requestBag(i);
+  }
+  function preloadAllLazy() {
+    // Stagger the rest so we never hit Safari's decode pipeline with 10 webps at once
+    let idx = 0;
+    const step = () => {
+      while (idx < IMG.length && IMG_REQUESTED[idx]) idx++;
+      if (idx >= IMG.length) return;
+      requestBag(idx);
+      idx++;
+      const next = () => {
+        if ("requestIdleCallback" in window) {
+          requestIdleCallback(step, { timeout: 800 });
+        } else {
+          setTimeout(step, 250);
+        }
+      };
+      next();
+    };
+    step();
+  }
   if (ASSETS.bg) stage.style.backgroundImage = `url(${ASSETS.bg})`;
   if (ASSETS.logo) { const lg = document.querySelector(".logo"); if (lg) lg.src = ASSETS.logo; }
+  preloadEssentials();
+  // Once the menu is paint-ready, stagger the rest of the bag decodes
+  if ("requestIdleCallback" in window) {
+    requestIdleCallback(preloadAllLazy, { timeout: 1500 });
+  } else {
+    setTimeout(preloadAllLazy, 600);
+  }
 
   /* ---------- état ---------- */
   let state = "menu";
@@ -489,6 +526,7 @@
       a._dead = b._dead = true;
       Composite.remove(world, a); Composite.remove(world, b);
       if (lvl < N) {
+        requestBag(lvl + 1); requestBag(lvl + 2);
         const nb = makeBag(lvl + 1, mx, my);
         Body.setVelocity(nb, { x: vx, y: vy });
         nb._pop = now;
@@ -638,7 +676,10 @@
     if (score > best) { best = score; try { localStorage.setItem("excedent_best", String(best)); } catch (e) {} }
     bestHud.textContent = best; bestMenu.textContent = best; bestOver.textContent = best;
   }
-  function spawnCurrent() { curLevel = nextLevel; nextLevel = randDrop(); updatePreview(); }
+  function spawnCurrent() {
+    curLevel = nextLevel; nextLevel = randDrop(); updatePreview();
+    requestBag(curLevel - 1); requestBag(nextLevel - 1);
+  }
   function drop() {
     if (state !== "playing" || curLevel === 0 || spawnTimer > 0) return;
     const halfW = bagW(curLevel) / 2;
