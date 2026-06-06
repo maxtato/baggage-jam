@@ -327,12 +327,13 @@
 
   /* ---------- moteur physique ---------- */
   const engine = Engine.create({ enableSleeping: true });
-  engine.gravity.y = 2.6;
-  engine.positionIterations = 10;
-  engine.velocityIterations = 6;
+  engine.gravity.y = 2.4;
+  engine.positionIterations = 12;
+  engine.velocityIterations = 8;
+  engine.constraintIterations = 4;
   const world = engine.world;
 
-  const wallOpt = { isStatic: true, restitution: 0, friction: 1.1, frictionStatic: 1.5 };
+  const wallOpt = { isStatic: true, restitution: 0, friction: 1.2, frictionStatic: 1.6 };
   const ZERO_V = { x: 0, y: 0 };
   const SQUASH_MIN_IMPACT = 1.5;
   const SQUASH_MAX_AMP = 0.075;
@@ -375,9 +376,9 @@
     const SHRINK = 0.92;
     const v = (VERTS[level - 1] || []).map(([px, py]) => ({ x: px * scale * SHRINK, y: py * scale * SHRINK }));
     const opts = {
-      restitution: 0.02, friction: 1.0, frictionStatic: 1.5,
-      frictionAir: 0.012, density: 0.0016 + (level - 1) * 0.0005, slop: 0.05,
-      sleepThreshold: 50,
+      restitution: 0.035, friction: 0.95, frictionStatic: 1.4,
+      frictionAir: 0.009, density: 0.0014 * Math.pow(1.16, level - 1), slop: 0.035,
+      sleepThreshold: 40,
     };
     let b;
     if (v.length >= 3) {
