@@ -745,8 +745,12 @@
   /* ---------- chaîne de fusion ---------- */
   function buildChain(el) {
     el.innerHTML = "";
-    ASSETS.bags.forEach((src, i) => {
-      const im = document.createElement("img"); im.src = src; im.className = "chain-bag"; el.appendChild(im);
+    const thumbs = ASSETS.thumbs || ASSETS.bags;
+    thumbs.forEach((src, i) => {
+      const im = document.createElement("img");
+      im.src = src; im.className = "chain-bag";
+      im.decoding = "async"; im.loading = "eager";
+      el.appendChild(im);
       if (i < N - 1) { const a = document.createElement("span"); a.className = "arr"; a.textContent = "›"; el.appendChild(a); }
     });
   }
