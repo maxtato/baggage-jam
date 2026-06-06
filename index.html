@@ -730,12 +730,17 @@
   buildChain($("chainMenu")); buildChain($("chainLegend"));
 
   /* ---------- redimensionnement ---------- */
+  const MAX_CANVAS_PX = 4096;
   function resize() {
     const aspect = W / H;
     let aw = Math.min(window.innerWidth, 540), ah = window.innerHeight;
     let w = aw, h = w / aspect; if (h > ah) { h = ah; w = h * aspect; }
     stage.style.width = w + "px"; stage.style.height = h + "px";
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const baseDpr = Math.min(window.devicePixelRatio || 1, 3);
+    const zoom = (window.visualViewport && window.visualViewport.scale) || 1;
+    let dpr = baseDpr * zoom;
+    const longSide = Math.max(W, H);
+    if (longSide * dpr > MAX_CANVAS_PX) dpr = MAX_CANVAS_PX / longSide;
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
     canvas.style.width = w + "px"; canvas.style.height = h + "px";
     ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
@@ -744,6 +749,15 @@
   }
   window.addEventListener("resize", resize);
   window.addEventListener("orientationchange", () => setTimeout(resize, 200));
+  if (window.visualViewport) {
+    let lastScale = window.visualViewport.scale, vvT;
+    window.visualViewport.addEventListener("resize", () => {
+      const s = window.visualViewport.scale;
+      if (Math.abs(s - lastScale) < 0.08) return;
+      lastScale = s;
+      clearTimeout(vvT); vvT = setTimeout(resize, 120);
+    });
+  }
 
   /* ---------- boucle ---------- */
   let last = performance.now(), acc = 0;
