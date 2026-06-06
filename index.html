@@ -549,16 +549,11 @@
   function drawGuide() {
     if (!showGuide) return;
     const halfH = bagH(curLevel) / 2;
-    const top = SPAWN_Y + halfH, bot = FLOOR_Y;
     ctx.save();
-    ctx.lineWidth = 5; ctx.lineCap = "butt";
-    ctx.setLineDash([10, 10]);
+    ctx.lineWidth = 1.5; ctx.lineCap = "butt";
+    ctx.setLineDash([5, 6]);
     ctx.strokeStyle = "#ffd23f";
-    ctx.lineDashOffset = 0;
-    ctx.beginPath(); ctx.moveTo(currentX, top); ctx.lineTo(currentX, bot); ctx.stroke();
-    ctx.strokeStyle = "#0a0a0b";
-    ctx.lineDashOffset = 10;
-    ctx.beginPath(); ctx.moveTo(currentX, top); ctx.lineTo(currentX, bot); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(currentX, SPAWN_Y + halfH); ctx.lineTo(currentX, FLOOR_Y); ctx.stroke();
     ctx.restore();
   }
   function drawParticles() {
