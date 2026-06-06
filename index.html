@@ -30,7 +30,7 @@
     padding-bottom:env(safe-area-inset-bottom); padding-top:env(safe-area-inset-top); }
   body { display:flex; align-items:flex-end; justify-content:center; }
   #app { position:relative; }
-  #stage { position:relative; overflow:hidden; background:#fffaf0; background-size:cover; background-position:center; }
+  #stage { position:relative; overflow:hidden; background:#fffaf0; background-size:cover; background-position:center bottom; }
   #stage::after { content:""; position:absolute; inset:0; z-index:2; pointer-events:none; }
   #stage::before { content:""; position:absolute; inset:0; z-index:2; pointer-events:none; }
   canvas { position:absolute; inset:0; display:block; touch-action:none; z-index:1; }
