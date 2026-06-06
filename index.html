@@ -28,16 +28,17 @@
   html, body { height:100%; min-height:100dvh; background:#fffaf0; color:var(--ink); font-family:var(--mono);
     overscroll-behavior:none; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent;
     padding-bottom:env(safe-area-inset-bottom); padding-top:env(safe-area-inset-top); }
-  body { display:flex; align-items:center; justify-content:center; }
-  #app { position:relative; }
+  body { display:flex; align-items:stretch; justify-content:center; }
+  #app { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; flex:1; width:100%; }
   #stage { position:relative; overflow:hidden; background:#fffaf0; background-size:cover; background-position:center; }
   #stage::after { content:""; position:absolute; inset:0; z-index:2; pointer-events:none; }
   #stage::before { content:""; position:absolute; inset:0; z-index:2; pointer-events:none; }
   canvas { position:absolute; inset:0; display:block; touch-action:none; z-index:1; }
 
   /* ---------- HUD ---------- */
-  #hud { position:absolute; inset:0; z-index:3; pointer-events:none; padding:12px;
-    display:flex; justify-content:space-between; align-items:flex-start; }
+  #hud { width:100%; max-width:540px; z-index:3; pointer-events:none; padding:12px;
+    display:flex; justify-content:space-between; align-items:flex-start; gap:8px;
+    box-sizing:border-box; }
   .panel { background:#fffaf0; border:3px solid #0a0a0b; border-radius:14px; padding:8px 14px;
     box-shadow:0 5px 0 #0a0a0b, 0 8px 14px rgba(0,0,0,.22); }
   .lbl { font-size:13px; letter-spacing:.04em; color:#0a0a0b; text-transform:uppercase;
@@ -163,29 +164,28 @@
 </head>
 <body>
 <div id="app">
-  <div id="stage">
-    <canvas id="game"></canvas>
-
-    <div id="hud">
-      <div class="panel score-panel">
-        <div class="lbl">Score</div>
-        <div id="score" class="val">0</div>
-        <div class="lives" id="lives"></div>
-        <div class="mini">Record <span id="bestHud">0</span></div>
+  <div id="hud">
+    <div class="panel score-panel">
+      <div class="lbl">Score</div>
+      <div id="score" class="val">0</div>
+      <div class="lives" id="lives"></div>
+      <div class="mini">Record <span id="bestHud">0</span></div>
+    </div>
+    <div class="hud-right">
+      <div class="btns">
+        <button class="ui-btn" id="pause" aria-label="Pause">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        </button>
+        <button class="ui-btn" id="info" aria-label="Aide">i</button>
       </div>
-      <div class="hud-right">
-        <div class="btns">
-          <button class="ui-btn" id="pause" aria-label="Pause">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-          </button>
-          <button class="ui-btn" id="info" aria-label="Aide">i</button>
-        </div>
-        <div class="panel next-panel">
-          <div class="lbl">Suivant</div>
-          <img id="nextImg" alt="" />
-        </div>
+      <div class="panel next-panel">
+        <div class="lbl">Suivant</div>
+        <img id="nextImg" alt="" />
       </div>
     </div>
+  </div>
+  <div id="stage">
+    <canvas id="game"></canvas>
 
     <div id="legend" class="hidden">
       <div class="legend-head"><span>Chaîne de fusion</span><button class="ui-btn" id="legendClose" aria-label="Fermer">×</button></div>
