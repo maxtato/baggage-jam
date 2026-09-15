@@ -35,18 +35,19 @@
   button:disabled { opacity:.45; cursor:default; }
   .hidden { display:none!important; }
   .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
-  #app { position:relative; isolation:isolate; }
-  #stage { position:relative; overflow:hidden; background:var(--paper); background-repeat:no-repeat; }
+  #app { position:relative; isolation:isolate; width:100%; height:100%; }
+  #stage { position:relative; overflow:hidden; background:var(--paper); }
   canvas { position:absolute; inset:0; display:block; touch-action:none; z-index:1; image-rendering:pixelated; }
+  #scenery { z-index:0; pointer-events:none; }
   #stage::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:2; border:0 solid transparent; transition:box-shadow .3s; }
   #stage.life-warning::after { box-shadow:inset 0 0 35px #c9443824; }
-  #hud { position:absolute; top:0; left:0; right:0; z-index:3; padding:calc(12px + env(safe-area-inset-top,0px)) 14px 0; display:flex; justify-content:space-between; align-items:flex-start; gap:10px; pointer-events:none; }
+  #hud { position:absolute; top:0; left:50%; width:100%; max-width:620px; transform:translateX(-50%); z-index:3; padding:calc(6px + env(safe-area-inset-top,0px)) 10px 0; display:flex; justify-content:space-between; align-items:flex-start; gap:10px; pointer-events:none; }
   .panel { border:2px solid var(--ink); border-radius:13px; background:var(--paper); box-shadow:0 4px 0 var(--ink); }
-  .score-panel { padding:10px 14px 11px; min-width:124px; }
+  .score-panel { padding:8px 12px 9px; min-width:112px; }
   .lbl,.eyebrow { font:700 11px/1.4 var(--mono); letter-spacing:.1em; text-transform:uppercase; }
   .score-panel .lbl { color:var(--dim); }
-  .score-panel .val { font:900 42px/.98 var(--display); letter-spacing:-.055em; margin:3px 0 8px; transform-origin:left center; font-variant-numeric:tabular-nums; }
-  .score-panel .mini { font:500 10px/1.4 var(--mono); color:var(--dim); margin-top:8px; }
+  .score-panel .val { font:900 34px/.98 var(--display); letter-spacing:-.055em; margin:2px 0 6px; transform-origin:left center; font-variant-numeric:tabular-nums; }
+  .score-panel .mini { font:500 9px/1.4 var(--mono); color:var(--dim); margin-top:6px; }
   .score-panel .mini span { font-weight:700; color:var(--ink); }
   .val.bump { animation:score-pop .32s cubic-bezier(.2,.9,.3,1.4); }
   @keyframes score-pop { 35% { transform:scale(1.12); color:#d75a24; } }
@@ -223,6 +224,7 @@
     </div>
   </div>
   <div id="stage">
+    <canvas id="scenery" aria-hidden="true"></canvas>
     <canvas id="game" tabindex="0" aria-label="Chariot à bagages. Glissez puis relâchez pour lâcher. Au clavier, flèches pour viser et espace pour lâcher."></canvas>
     <div id="comboBadge" aria-live="polite"><strong id="comboTitle"></strong><span id="comboDetail"></span></div>
     <div id="gameNotice" role="status"></div>
@@ -332,17 +334,21 @@
   const { Engine, Bodies, Composite, Body, Events } = M;
 
   /* ---------- dimensions (calées sur le ratio de l'image de fond) ---------- */
-  const W = 460, H = 819;
-  // One camera transform for scenery, bags and arm. Leave space for the HUD
-  // above the open hatch, and show the whole trolley including its wheels.
-  const SCENE_SCALE = .78, SCENE_X = W * (1 - SCENE_SCALE) / 2, SCENE_Y = 128;
+  const W = 460, BASE_H = 819;
+  let H = BASE_H;
+  // The illustration keeps its proportions. Only the empty sky between the
+  // plane and the ground grows to fill taller screens.
+  const SCENE_IMAGE_H = BASE_H * 1.005, SCENE_IMAGE_W = SCENE_IMAGE_H * 2 / 3;
+  const SCENE_IMAGE_TOP = (BASE_H - SCENE_IMAGE_H) * .55;
+  const SCENE_SPLIT = 940, SCENE_SPLIT_Y = SCENE_IMAGE_TOP + SCENE_IMAGE_H * SCENE_SPLIT / 1536;
+  const scene = { scale:1, x:0, y:0, width:W, height:BASE_H, gap:0, header:118 };
   const RAIL = 14;          // épaisseur visuelle des barrières
 
   /* repères calés sur le décor (porte de soute / chariot) */
   const SPAWN_Y = 260;      // hauteur de la porte de soute (point de chute)
-  const FLOOR_Y = 748;      // plateau du chariot
+  let FLOOR_Y = 748;        // plateau du chariot, repositionné selon l'écran
   const BARRIER_H = 105;    // hauteur des barrières (au-delà -> ça déborde)
-  const BARRIER_TOP_Y = FLOOR_Y - BARRIER_H;   // 643
+  let BARRIER_TOP_Y = FLOOR_Y - BARRIER_H;
   const LEFT_X = 38;        // face intérieure barrière gauche
   const RIGHT_X = 422;      // face intérieure barrière droite
 
@@ -386,6 +392,8 @@
   const stage = $("stage");
   const canvas = $("game");
   const ctx = canvas.getContext("2d");
+  const scenery = $("scenery"), sceneryCtx = scenery.getContext("2d");
+  const SCENERY_ART = new Image();
   const scoreEl = $("score"), bestHud = $("bestHud"), livesEl = $("lives");
   const nextImg = $("nextImg");
   const menu = $("menu"), over = $("over"), legend = $("legend"), pauseMenu = $("pauseMenu");
@@ -450,7 +458,6 @@
     };
     step();
   }
-  if (ASSETS.bg) stage.style.backgroundImage = `url(${ASSETS.bg})`;
   if (ASSETS.logo) { const lg = document.querySelector(".logo"); if (lg) lg.src = ASSETS.logo; }
   preloadEssentials();
   // Once the menu is paint-ready, stagger the rest of the bag decodes
@@ -495,12 +502,13 @@
   const SQUASH_FREQ = 22;
   const SQUASH_LIFE_MS = 650;
   // barrières COURTES (du plateau jusqu'à BARRIER_TOP_Y), épaisseur vers l'extérieur
-  Composite.add(world, [
+  const cartBodies = [
     Bodies.rectangle(LEFT_X - 15, (BARRIER_TOP_Y + FLOOR_Y) / 2, 30, FLOOR_Y - BARRIER_TOP_Y + 2, wallOpt),
     Bodies.rectangle(RIGHT_X + 15, (BARRIER_TOP_Y + FLOOR_Y) / 2, 30, FLOOR_Y - BARRIER_TOP_Y + 2, wallOpt),
     // plateau : UNIQUEMENT entre les barrières (sinon, ce qui déborde tombe à côté)
     Bodies.rectangle((LEFT_X + RIGHT_X) / 2, FLOOR_Y + 30, RIGHT_X - LEFT_X, 60, { ...wallOpt, label: "cart-floor" }),
-  ]);
+  ];
+  Composite.add(world, cartBodies);
 
 
   Events.on(engine, "collisionStart", (ev) => {
@@ -965,14 +973,14 @@
   // Grip locations are measured on the existing sprites, in image coordinates.
   const HAND_GRIPS = [[.56,.055],[.625,.058],[.49,.057],[.47,.08],[.49,.052],
     [.525,.046],[.54,.045],[.54,.042],[.575,.044],[.51,.042]];
-  const HAND_GRIP_Y = 266;
+  const HAND_GRIP_Y = 362;
   const HAND_ART = new Image();
   HAND_ART.src = "/assets/handler/hand-drawn-poses.png";
   const HAND_FRAME = 887, HAND_SCALE = 96 / HAND_FRAME;
   const HAND_ANCHOR = { x: 325, y: 706 };
   const CUFF_CUT = { x: 455, y: 505 };
   const ARM_AXIS = { x: .6, y: -.8 }, ARM_LENGTH = 570;
-  const SHOULDER_Y = 154, UPPER_ARM = 106, FOREARM = 86;
+  const SHOULDER_Y = 154, UPPER_ARM = 120, FOREARM = 96;
   // Measured cross-sections of the sleeve artwork: position, width and center.
   // Recenter its texture on a straight, roomy jacket sleeve instead of widening
   // its existing bulge. The cuff still meets the unscaled hand exactly.
@@ -989,7 +997,7 @@
     return { width, offset: 13.5 * HAND_SCALE - center * width };
   }
   const ARM_SURFACE = document.createElement("canvas");
-  ARM_SURFACE.width = W * 2; ARM_SURFACE.height = H * 2;
+  ARM_SURFACE.width = W * 2; ARM_SURFACE.height = BASE_H * 2;
   const armCtx = ARM_SURFACE.getContext("2d");
 
   function heldBagLayout(level, x = currentX) {
@@ -998,46 +1006,47 @@
     const side = Math.abs(reach), lift = side * side * (3 - 2 * side);
     const entry = preferences.motion ? Math.max(0, 1 - (handlerClock - handlerArrival) / .18) : 0;
     const bob = preferences.motion ? Math.sin(handlerClock * 2.7) * 1.2 : 0;
-    const edgeY = SHOULDER_Y + (reach < 0 ? 16 : 0);
-    const gripY = HAND_GRIP_Y + (edgeY - HAND_GRIP_Y) * lift
-      + (bob - entry * entry * 10) * (1 - side);
+    const gripX = x + (u - .5) * bagW(level), direction = reach < 0 ? -1 : 1;
+    const radius = HAND_GRIP_Y - SHOULDER_Y + (UPPER_ARM + FOREARM - HAND_GRIP_Y + SHOULDER_Y) * lift;
+    const swing = side * Math.PI / 2;
+    const shoulder = gripX - direction * Math.sin(swing) * radius;
+    const rootX = Math.max(155, Math.min(305, shoulder));
+    const dx = gripX - rootX;
+    const down = rootX === shoulder ? Math.cos(swing) * radius : Math.sqrt(Math.max(0, radius * radius - dx * dx));
+    const gripY = SHOULDER_Y + down + (bob - entry * entry * 10) * (1 - side);
     return { x, y: gripY + (.5 - v) * bagH(level),
-      gripX: x + (u - .5) * bagW(level), gripY, reach, alpha: 1 - entry * .65 };
+      gripX, gripY, rootX, reach, alpha: 1 - entry * .65 };
   }
   function solveHandlerArm(pose) {
-    // The shorter forearm puts the elbow lower. Its small bend stays on the
-    // left; reaching right aligns shoulder, elbow and wrist without reversing it.
+    // Both bones have constant lengths in the actual drawing plane. A single
+    // elbow branch unfolds continuously; no hidden depth can shorten the sleeve.
     const dx = pose.x - pose.rootX, dy = pose.y - pose.rootY;
     const distance = Math.hypot(dx, dy);
     const d = Math.max(Math.abs(UPPER_ARM - FOREARM) + .01,
-      Math.min(UPPER_ARM + FOREARM - .01, distance));
+      Math.min(UPPER_ARM + FOREARM, distance));
     const ux = dx / distance, uy = dy / distance;
     const along = (UPPER_ARM * UPPER_ARM - FOREARM * FOREARM + d * d) / (2 * d);
     const height = Math.sqrt(Math.max(0, UPPER_ARM * UPPER_ARM - along * along));
-    const turn = -.24 * Math.max(0, Math.min(1, -dx / (UPPER_ARM + FOREARM)));
-    const elbowX = pose.rootX + ux * along - uy * height * turn;
-    const elbowY = pose.rootY + uy * along + ux * height * turn;
-    const elbowZ = height * Math.sqrt(1 - turn * turn);
+    const elbowX = pose.rootX + ux * along - uy * height;
+    const elbowY = pose.rootY + uy * along + ux * height;
     const angle = Math.atan2(elbowY - pose.y, elbowX - pose.x)
       - Math.atan2(CUFF_CUT.y - HAND_ANCHOR.y, CUFF_CUT.x - HAND_ANCHOR.x);
-    return { ...pose, elbowX, elbowY, elbowZ, angle };
+    return { ...pose, elbowX, elbowY, angle };
   }
   function handlerPose() {
     if (state !== "playing") return null;
     if (curLevel) {
       const held = heldBagLayout(curLevel);
       return solveHandlerArm({ x: held.gripX, y: held.gripY, open: 0, alpha: held.alpha,
-        rootX: W / 2 + held.reach * 24, rootY: SHOULDER_Y });
+        rootX: held.rootX, rootY: SHOULDER_Y });
     }
     if (!handlerRelease || !preferences.motion) return null;
     const age = handlerClock - handlerRelease.time;
     if (age >= .39) return null;
     const opening = Math.min(1, age / .075);
     const retreat = Math.pow(Math.max(0, Math.min(1, (age - .09) / .30)), 2);
-    const retreatX = handlerRelease.rootX + (handlerRelease.x < handlerRelease.rootX ? -72 : 72);
     return solveHandlerArm({ ...handlerRelease, open: opening,
-      x: handlerRelease.x + (retreatX - handlerRelease.x) * retreat,
-      y: handlerRelease.y + (SHOULDER_Y + 8 - handlerRelease.y) * retreat,
+      y: handlerRelease.y - 32 * retreat, rootY: handlerRelease.rootY - 32 * retreat,
       alpha: 1 - retreat });
   }
   function handlerCurve(pose, t) {
@@ -1048,7 +1057,7 @@
     const elbow = { x: pose.elbowX, y: pose.elbowY }, end = { x: pose.rootX, y: pose.rootY };
     const fore = Math.hypot(elbow.x - start.x, elbow.y - start.y);
     const upper = Math.hypot(end.x - elbow.x, end.y - elbow.y);
-    const round = Math.min(24, fore * .4, upper * .4);
+    const round = Math.min(10, fore * .4, upper * .4);
     const before = { x: elbow.x + (start.x - elbow.x) * round / fore,
       y: elbow.y + (start.y - elbow.y) * round / fore };
     const after = { x: elbow.x + (end.x - elbow.x) * round / upper,
@@ -1080,7 +1089,7 @@
     const ux = ARM_AXIS.x, uy = ARM_AXIS.y, px = -uy, py = ux;
     // Texture strips bend the cloth while preserving hand size and keeping the
     // shoulder inside the cargo hold even when the player aims at either edge.
-    armCtx.setTransform(2, 0, 0, 2, 0, 0); armCtx.clearRect(0, 0, W, H);
+    armCtx.setTransform(2, 0, 0, 2, 0, 0); armCtx.clearRect(0, 0, W, BASE_H);
     const slices = 40;
     for (let i = 0; i < slices; i++) {
       const from = i / slices, to = (i + 1) / slices;
@@ -1106,9 +1115,9 @@
     shade.addColorStop(0, "rgba(0,0,0,1)"); shade.addColorStop(.35, "rgba(0,0,0,1)");
     shade.addColorStop(.6, "rgba(0,0,0,.8)"); shade.addColorStop(.82, "rgba(0,0,0,.22)");
     shade.addColorStop(1, "rgba(0,0,0,0)");
-    armCtx.fillStyle = shade; armCtx.fillRect(0, 0, W, H); armCtx.restore();
+    armCtx.fillStyle = shade; armCtx.fillRect(0, 0, W, BASE_H); armCtx.restore();
     ctx.save(); ctx.globalAlpha = pose.alpha;
-    ctx.drawImage(ARM_SURFACE, 0, 0, ARM_SURFACE.width, ARM_SURFACE.height, 0, 0, W, H);
+    ctx.drawImage(ARM_SURFACE, 0, 0, ARM_SURFACE.width, ARM_SURFACE.height, 0, 0, W, BASE_H);
     ctx.restore();
   }
   function drawHandlerHand(pose) {
@@ -1442,7 +1451,7 @@
   }
   const localX = (e) => {
     const r = canvas.getBoundingClientRect();
-    return ((e.clientX - r.left) / r.width * W - SCENE_X) / SCENE_SCALE;
+    return ((e.clientX - r.left) / r.width * scene.width - scene.x) / scene.scale;
   };
   function setCurX(e) {
     const halfW = curLevel > 0 ? bagW(curLevel) / 2 : bagW(1) / 2;
@@ -1589,35 +1598,71 @@
   /* ---------- redimensionnement ---------- */
   const MAX_CANVAS_PX = 4096;
   function positionScenery(sx = 0, sy = 0) {
-    const top = SCENE_Y + (H - H * 1.005) * .55 * SCENE_SCALE;
-    stage.style.backgroundSize = `auto ${H * 1.005 * SCENE_SCALE * worldScale}px`;
-    stage.style.backgroundPosition = `calc(50% + ${sx * SCENE_SCALE * worldScale}px) ${(top + sy * SCENE_SCALE) * worldScale}px`;
+    if (!SCENERY_ART.complete || !SCENERY_ART.naturalWidth) return;
+    const c = sceneryCtx, densityX = scenery.width / scene.width, densityY = scenery.height / scene.height;
+    c.setTransform(densityX, 0, 0, densityY, 0, 0);
+    c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high";
+    const width = SCENE_IMAGE_W * scene.scale, left = (scene.width - width) / 2 + sx * scene.scale;
+    const top = scene.header + sy * scene.scale, ratio = width / SCENERY_ART.naturalWidth;
+    const split = SCENERY_ART.naturalHeight * SCENE_SPLIT / 1536;
+    // Extend the existing scenery to every edge, including during a small shake.
+    // The side strips continue the illustrated plane and tarmac on wide displays.
+    function band(sourceY, sourceH, y, height) {
+      if (height <= 0) return;
+      const sourceW = SCENERY_ART.naturalWidth;
+      c.drawImage(SCENERY_ART, 0, sourceY, sourceW, sourceH, left, y, width, height + .5);
+      const leftSource = sourceY >= split ? sourceW - 1 : 0;
+      if (left > 0) c.drawImage(SCENERY_ART, leftSource, sourceY, 1, sourceH, 0, y, left + .5, height + .5);
+      const right = left + width;
+      if (right < scene.width) c.drawImage(SCENERY_ART, sourceW - 1, sourceY, 1, sourceH, right - .5, y, scene.width - right + .5, height + .5);
+    }
+    c.fillStyle = "#faf6f2"; c.fillRect(0, 0, scene.width, Math.max(0, top) + .5);
+    band(0, split, top, split * ratio);
+    band(split - 2, 2, top + split * ratio, scene.gap * scene.scale);
+    const bottomStart = top + split * ratio + scene.gap * scene.scale;
+    const bottomHeight = (SCENERY_ART.naturalHeight - split) * ratio;
+    band(split, SCENERY_ART.naturalHeight - split, bottomStart, bottomHeight);
+    band(SCENERY_ART.naturalHeight - 1, 1, bottomStart + bottomHeight, scene.height - bottomStart - bottomHeight);
   }
   function resize() {
-    const aspect = W / H;
-    let aw = Math.min(window.innerWidth, 540), ah = window.innerHeight;
-    let w = aw, h = w / aspect; if (h > ah) { h = ah; w = h * aspect; }
-    stage.style.width = w + "px"; stage.style.height = h + "px"; worldScale = w / W;
-    positionScenery();
+    const w = window.innerWidth, h = window.innerHeight;
+    const hudTop = parseFloat(window.getComputedStyle?.($("hud")).paddingTop) || 6;
+    const header = Math.min(h * .3, hudTop + 112);
+    const scale = Math.min(w / SCENE_IMAGE_W, (h - header) / SCENE_IMAGE_H);
+    const gap = Math.max(0, (h - header) / scale - SCENE_IMAGE_H);
+    const floorShift = 748 + gap - FLOOR_Y, oldFloor = FLOOR_Y;
+    Object.assign(scene, { width:w, height:h, scale, x:(w - W * scale) / 2,
+      y:header - SCENE_IMAGE_TOP * scale, gap, header });
+    H = BASE_H + gap; FLOOR_Y = 748 + gap; BARRIER_TOP_Y = FLOOR_Y - BARRIER_H;
+    if (Math.abs(floorShift) > .001) {
+      for (const body of cartBodies) Body.translate(body, { x:0, y:floorShift });
+      for (const bag of allBags()) {
+        const progress = bag._landed ? 1 : Math.max(0, Math.min(1, (bag.position.y - SCENE_SPLIT_Y) / (oldFloor - SCENE_SPLIT_Y)));
+        Body.translate(bag, { x:0, y:floorShift * progress }); bag._trail.length = 0; bag._sq = null;
+      }
+      parts.length = 0; rings.length = 0; impacts.length = 0; floats.length = 0;
+    }
+    stage.style.width = w + "px"; stage.style.height = h + "px"; worldScale = scale;
     const baseDpr = Math.min(window.devicePixelRatio || 1, 3);
     const zoom = (window.visualViewport && window.visualViewport.scale) || 1;
     let dpr = baseDpr * zoom;
-    const longSide = Math.max(W, H);
+    const longSide = Math.max(w, h);
     if (longSide * dpr > MAX_CANVAS_PX) dpr = MAX_CANVAS_PX / longSide;
-    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-    canvas.style.width = w + "px"; canvas.style.height = h + "px";
-    ctx.setTransform(canvas.width / W * SCENE_SCALE, 0, 0, canvas.height / H * SCENE_SCALE,
-      canvas.width / W * SCENE_X, canvas.height / H * SCENE_Y);
+    for (const surface of [canvas, scenery]) {
+      surface.width = Math.round(w * dpr); surface.height = Math.round(h * dpr);
+      surface.style.width = w + "px"; surface.style.height = h + "px";
+    }
+    ctx.setTransform(canvas.width / w * scale, 0, 0, canvas.height / h * scale,
+      canvas.width / w * scene.x, canvas.height / h * scene.y);
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+    positionScenery();
+    if (state === "playing" || state === "paused") render(performance.now());
   }
   window.addEventListener("resize", resize);
   window.addEventListener("orientationchange", () => setTimeout(resize, 200));
   if (window.visualViewport) {
-    let lastScale = window.visualViewport.scale, vvT;
+    let vvT;
     window.visualViewport.addEventListener("resize", () => {
-      const s = window.visualViewport.scale;
-      if (Math.abs(s - lastScale) < 0.08) return;
-      lastScale = s;
       clearTimeout(vvT); vvT = setTimeout(resize, 120);
     });
   }
@@ -1651,6 +1696,8 @@
 
   /* ---------- init ---------- */
   buildLives(); setBest(); resize();
+  SCENERY_ART.addEventListener("load", () => positionScenery());
+  SCENERY_ART.src = ASSETS.bg;
   $("hud").inert = true; canvas.tabIndex = -1;
   requestAnimationFrame(frame);
 })();

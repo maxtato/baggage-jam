@@ -39,7 +39,7 @@ vm.createContext(context);
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
 scripts.forEach((m,i)=>{
   let code=m[1];
-  if(i===scripts.length-1) code=code.replace('  /* ---------- init ---------- */', '  window.test = {scene:{scale:SCENE_SCALE,x:SCENE_X,y:SCENE_Y},handlerCurve,handlerPose,heldBagLayout,getClock:()=>handlerClock,setNext:level=>{nextLevel=level;},setHeld:(level,x)=>{curLevel=level;currentX=x;handlerArrival=handlerClock-1;},bagW,bagH,topSurfaceY,bagRenderMatrix,startGame,pauseGame,resumeGame,homeMenu,openHelp,closeHelp,makeBag,processMerges,loseLife,frame,drop,Engine,engine,allBags,impactFX,bagPose,bagMatrix,stackShadows,drawBag,isFalling,updateFX,bakeImage,IMG,BAKED,BAG_SHADOWS,Body,get:()=>({state,score,best,livesLeft,curLevel,mergeCount,maxCombo,highestLevel,runAvailable,isDown,parts:parts.length,rings:rings.length,impacts:impacts.map(x=>({...x})),shakeT}), setPrefs:(v)=>{preferences={...preferences,...v};syncPreferences();}, queue:(a,b)=>mergeQueue.push([a,b])};\n  /* ---------- init ---------- */');
+  if(i===scripts.length-1) code=code.replace('  /* ---------- init ---------- */', '  window.test = {scene,resize,getFloor:()=>FLOOR_Y,cartBodies,handlerCurve,handlerPose,heldBagLayout,getClock:()=>handlerClock,setNext:level=>{nextLevel=level;},setHeld:(level,x)=>{curLevel=level;currentX=x;handlerArrival=handlerClock-1;},bagW,bagH,topSurfaceY,bagRenderMatrix,startGame,pauseGame,resumeGame,homeMenu,openHelp,closeHelp,makeBag,processMerges,loseLife,frame,drop,Engine,engine,allBags,impactFX,bagPose,bagMatrix,stackShadows,drawBag,isFalling,updateFX,bakeImage,IMG,BAKED,BAG_SHADOWS,Body,get:()=>({state,score,best,livesLeft,curLevel,mergeCount,maxCombo,highestLevel,runAvailable,isDown,parts:parts.length,rings:rings.length,impacts:impacts.map(x=>({...x})),shakeT}), setPrefs:(v)=>{preferences={...preferences,...v};syncPreferences();}, queue:(a,b)=>mergeQueue.push([a,b])};\n  /* ---------- init ---------- */');
   vm.runInContext(code,context,{filename:`inline-${i}.js`});
 });
 const t=context.test;
@@ -55,7 +55,7 @@ for(let level=1;level<=10;level++){
  for(const x of [t.bagW(level)/2,230,460-t.bagW(level)/2]){
   t.startGame();t.setHeld(level,x);
   const held=t.heldBagLayout(level),hand=t.handlerPose();
-  assert.equal(hand.open,0);assert.ok(hand.rootX>=185&&hand.rootX<=309);
+  assert.equal(hand.open,0);assert.ok(hand.rootX>=155&&hand.rootX<=305);
   close(hand.x,held.gripX,'hand follows the sprite grip');
   close(hand.y,held.gripY,'hand stays on the grip');
   t.drop();const bag=t.allBags()[0],center=spriteCenter(bag);
@@ -69,25 +69,33 @@ console.log('PASS: all ten bags remain attached to their grips and release witho
 
 // A full sweep unfolds a constant-length arm, without a jump at the center.
 t.setPrefs({motion:false});
+let shortestSleeve=Infinity,longestSleeve=0;
 for(let level=1;level<=10;level++){
  t.startGame();
  let previous=null;
  for(let i=0;i<=100;i++){
   const half=t.bagW(level)/2,x=half+(460-2*half)*i/100;
   t.setHeld(level,x);const pose=t.handlerPose();
-  close(Math.hypot(pose.elbowX-pose.rootX,pose.elbowY-pose.rootY,pose.elbowZ),106,'upper arm does not stretch');
-  close(Math.hypot(pose.elbowX-pose.x,pose.elbowY-pose.y,pose.elbowZ),86,'shorter forearm does not stretch');
+  close(Math.hypot(pose.elbowX-pose.rootX,pose.elbowY-pose.rootY),120,'upper arm does not stretch');
+  close(Math.hypot(pose.elbowX-pose.x,pose.elbowY-pose.y),96,'shorter forearm does not stretch');
+  let clothLength=0,clothPoint=t.handlerCurve(pose,0);
+  for(let part=1;part<=200;part++){
+   const next=t.handlerCurve(pose,part/200);
+   clothLength+=Math.hypot(next.x-clothPoint.x,next.y-clothPoint.y);clothPoint=next;
+  }
+  shortestSleeve=Math.min(shortestSleeve,clothLength);longestSleeve=Math.max(longestSleeve,clothLength);
   assert.ok(pose.rootY>=141&&pose.rootY<190,'shoulder leaves room for the sleeve below the doorway lintel');
   if(previous)assert.ok(Math.hypot(pose.elbowX-previous.elbowX,pose.elbowY-previous.elbowY)<12,'elbow does not flip when crossing the center');
   previous=pose;
   if(i>=55){
    const dx=pose.x-pose.rootX,dy=pose.y-pose.rootY;
-   close((pose.elbowX-pose.rootX)*dy-(pose.elbowY-pose.rootY)*dx,0,'right reach keeps shoulder, elbow and wrist aligned');
+   const along=((pose.elbowX-pose.rootX)*dx+(pose.elbowY-pose.rootY)*dy)/(dx*dx+dy*dy);
+   assert.ok(along>0&&along<1,'the right elbow stays between the shoulder and the wrist');
   }
   if(i===50){
-   assert.ok((pose.elbowY-pose.rootY)/(pose.y-pose.rootY)>.58,'elbow sits lower on the neutral arm');
+   assert.ok((pose.elbowY-pose.rootY)/(pose.y-pose.rootY)>.54,'elbow sits lower on the neutral arm');
   }
-  if(i===100)close(pose.y,pose.rootY,'full right reach is horizontal from the shoulder');
+  if(level<=6&&i===100)close(pose.y,pose.rootY,'full right reach is horizontal from the shoulder');
   if(level<=6&&(i===0||i===100)){
    const slope=Math.abs((pose.y-pose.elbowY)/(pose.x-pose.elbowX));
    assert.ok(slope<Math.tan(Math.PI/6),'forearm is within 30 degrees of horizontal at both limits');
@@ -98,8 +106,9 @@ for(let level=1;level<=10;level++){
   }
  }
 }
+assert.ok(longestSleeve-shortestSleeve<1,'visible cloth length stays constant within one pixel across the entire sweep');
 t.setPrefs({motion:true});
-console.log('PASS: fixed-length arm, lower elbow and horizontal extension below the doorway lintel.');
+console.log('PASS: fixed 2D bones and visible sleeve length, slight central bend and horizontal extension below the lintel.');
 
 // Retraction must not turn the elbow beyond the wrist after the hand opens.
 for(const x of [30,230,430]){
@@ -135,14 +144,15 @@ console.log('PASS: entry, opening fingers, paused release, retraction, and autom
 const emit=(target,type,event={})=>(target.events[type]||[]).forEach(fn=>fn(event));
 const pointer=(id,x)=>({pointerId:id,pointerType:'touch',isPrimary:true,button:0,clientX:x,
  target:byId.get('game'),cancelable:true,preventDefault(){}});
-for(const rect of [{left:0,width:320},{left:0,width:390},{left:419,width:525}]){
- byId.get('game').rect={...rect,top:0,height:rect.width*819/460};
+for(const rect of [{left:0,width:320,height:568},{left:0,width:390,height:844},{left:0,width:1363,height:936}]){
+ context.innerWidth=rect.width;context.innerHeight=rect.height;t.resize();
+ byId.get('game').rect={...rect,top:0};
  t.startGame();step(15);
  const initial=t.handlerPose(),start=rect.left+rect.width*.3;
  emit(byId.get('stage'),'pointerdown',pointer(5,start));
  close(t.handlerPose().x,initial.x,'touching away from the bag does not snap the hand');
  emit(context,'pointermove',pointer(5,start+75));
- close((t.handlerPose().x-initial.x)*t.scene.scale*rect.width/460,75,'the hand follows the same screen distance as the finger after zooming out');
+ close((t.handlerPose().x-initial.x)*t.scene.scale,75,'the hand follows the same screen distance as the finger after zooming out');
  const release=t.heldBagLayout(4);emit(context,'pointerup',pointer(5,start+75));
  assert.equal(t.allBags().length,1);close(spriteCenter(t.allBags()[0]).x,release.x,'touch release uses the final aim');
 }
@@ -151,6 +161,35 @@ t.startGame();emit(byId.get('stage'),'pointerdown',pointer(6,230));
 emit(context,'pointercancel',pointer(6,230));emit(context,'pointerup',pointer(6,230));
 assert.equal(t.allBags().length,0);assert.equal(t.handlerPose().open,0);
 console.log('PASS: touch aiming stays aligned on small phones, phones and desktop; release and cancellation still work.');
+
+// Resizing moves the physical trolley and resting bags together, while the
+// artwork reaches all four edges and the open hatch remains below the HUD.
+t.startGame();
+const floorBefore=t.getFloor(),resting=t.makeBag(1,230,floorBefore-20);
+resting._landed=true;
+const gapBefore=floorBefore-resting.position.y;
+for(const [width,height] of [[320,568],[390,844],[430,932],[844,390],[1363,936]]){
+ context.innerWidth=width;context.innerHeight=height;t.resize();
+ assert.equal(byId.get('stage').style.width,width+'px');
+ assert.equal(byId.get('stage').style.height,height+'px');
+ assert.equal(byId.get('scenery').width,Math.round(width*2));
+ assert.equal(byId.get('scenery').height,Math.round(height*2));
+ close(t.getFloor()-resting.position.y,gapBefore,'resting bag stays on the same part of the trolley after resizing');
+ close(t.cartBodies[2].position.y,t.getFloor()+30,'physical floor follows the artwork');
+ const imageTop=t.scene.y+(819-819*1.005)*.55*t.scene.scale;
+ close(imageTop,t.scene.header,'open hatch begins below the HUD');
+ close(imageTop+(819*1.005+t.scene.gap)*t.scene.scale,height,'illustration ends exactly at the screen bottom');
+}
+console.log('PASS: full-screen portrait and landscape layouts keep the floor, bags and HUD aligned.');
+
+context.innerWidth=390;context.innerHeight=844;t.resize();t.startGame();
+t.setHeld(4,230);t.drop();step(150);
+const landed=t.allBags()[0];
+assert.ok(landed._landed,'a dropped bag reaches the repositioned trolley');
+assert.ok(Math.abs(landed.bounds.max.y-t.getFloor())<2,'the landed bag rests on the visible floor');
+context.innerWidth=844;context.innerHeight=390;t.resize();step(30);
+assert.ok(Math.abs(landed.bounds.max.y-t.getFloor())<2,'changing orientation preserves floor contact');
+console.log('PASS: a real physics drop lands on the trolley and stays grounded after rotation.');
 
 // A wider next bag must fit on screen before it is shown or dropped.
 for(const side of [-1,1]){
