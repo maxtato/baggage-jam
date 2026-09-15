@@ -1,5 +1,5 @@
-const CACHE = "baggage-jam-v10-no-handler";
-const SHELL = ["/", "/index.html", "/apple-icon.png", "/manifest.json"];
+const CACHE = "baggage-jam-v12-hd-collection";
+const SHELL = ["/", "/index.html", "/apple-icon.png", "/manifest.json", "/assets/bags/bag-01-hd.webp", "/assets/bags/bag-02-hd.webp", "/assets/bags/bag-03-hd.webp"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
