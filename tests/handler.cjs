@@ -75,11 +75,19 @@ for(let level=1;level<=10;level++){
  for(let i=0;i<=100;i++){
   const half=t.bagW(level)/2,x=half+(460-2*half)*i/100;
   t.setHeld(level,x);const pose=t.handlerPose();
-  close(Math.hypot(pose.elbowX-pose.rootX,pose.elbowY-pose.rootY,pose.elbowZ),92,'upper arm does not stretch');
-  close(Math.hypot(pose.elbowX-pose.x,pose.elbowY-pose.y,pose.elbowZ),119,'forearm does not stretch');
+  close(Math.hypot(pose.elbowX-pose.rootX,pose.elbowY-pose.rootY,pose.elbowZ),106,'upper arm does not stretch');
+  close(Math.hypot(pose.elbowX-pose.x,pose.elbowY-pose.y,pose.elbowZ),86,'shorter forearm does not stretch');
   assert.ok(pose.rootY>=106&&pose.rootY<140,'shoulder stays high inside the new doorway');
   if(previous)assert.ok(Math.hypot(pose.elbowX-previous.elbowX,pose.elbowY-previous.elbowY)<12,'elbow does not flip when crossing the center');
   previous=pose;
+  if(i>=55){
+   const dx=pose.x-pose.rootX,dy=pose.y-pose.rootY;
+   close((pose.elbowX-pose.rootX)*dy-(pose.elbowY-pose.rootY)*dx,0,'right reach keeps shoulder, elbow and wrist aligned');
+  }
+  if(i===50){
+   assert.ok((pose.elbowY-pose.rootY)/(pose.y-pose.rootY)>.58,'elbow sits lower on the neutral arm');
+  }
+  if(i===100)close(pose.y,pose.rootY,'full right reach is horizontal from the shoulder');
   if(level<=6&&(i===0||i===100)){
    const slope=Math.abs((pose.y-pose.elbowY)/(pose.x-pose.elbowX));
    assert.ok(slope<Math.tan(Math.PI/6),'forearm is within 30 degrees of horizontal at both limits');
@@ -88,7 +96,22 @@ for(let level=1;level<=10;level++){
  }
 }
 t.setPrefs({motion:true});
-console.log('PASS: constant arm length, smooth left-to-right reach, high shoulder and nearly horizontal forearm at either edge.');
+console.log('PASS: shorter fixed-length arm, lower elbow, smooth reach and straight horizontal extension from the shoulder on the right.');
+
+// Retraction must not turn the elbow beyond the wrist after the hand opens.
+for(const x of [30,230,430]){
+ t.startGame();t.setHeld(1,x);t.drop();
+ for(let i=0;i<23;i++){
+  const pose=t.handlerPose();
+  if(pose){
+   const dx=pose.x-pose.rootX,dy=pose.y-pose.rootY;
+   const along=((pose.elbowX-pose.rootX)*dx+(pose.elbowY-pose.rootY)*dy)/(dx*dx+dy*dy);
+   assert.ok(along>0&&along<1,'elbow never folds beyond the wrist during release');
+  }
+  step();
+ }
+}
+console.log('PASS: opening and withdrawal do not reverse the elbow.');
 
 t.startGame();assert.equal(t.get().curLevel,4,'playtest starts with the green duffel');
 // A quick release during the arrival animation must use the same visible position.
