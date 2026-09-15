@@ -36,7 +36,7 @@
   .hidden { display:none!important; }
   .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
   #app { position:relative; isolation:isolate; }
-  #stage { position:relative; overflow:hidden; background:var(--paper); background-size:auto 100.5%; background-position:center 55%; background-repeat:no-repeat; }
+  #stage { position:relative; overflow:hidden; background:var(--paper); background-repeat:no-repeat; }
   canvas { position:absolute; inset:0; display:block; touch-action:none; z-index:1; image-rendering:pixelated; }
   #stage::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:2; border:0 solid transparent; transition:box-shadow .3s; }
   #stage.life-warning::after { box-shadow:inset 0 0 35px #c9443824; }
@@ -333,6 +333,9 @@
 
   /* ---------- dimensions (calées sur le ratio de l'image de fond) ---------- */
   const W = 460, H = 819;
+  // One camera transform for scenery, bags and arm. Leave space for the HUD
+  // above the open hatch, and show the whole trolley including its wheels.
+  const SCENE_SCALE = .78, SCENE_X = W * (1 - SCENE_SCALE) / 2, SCENE_Y = 128;
   const RAIL = 14;          // épaisseur visuelle des barrières
 
   /* repères calés sur le décor (porte de soute / chariot) */
@@ -962,14 +965,29 @@
   // Grip locations are measured on the existing sprites, in image coordinates.
   const HAND_GRIPS = [[.56,.055],[.625,.058],[.49,.057],[.47,.08],[.49,.052],
     [.525,.046],[.54,.045],[.54,.042],[.575,.044],[.51,.042]];
-  const HAND_GRIP_Y = 236;
+  const HAND_GRIP_Y = 266;
   const HAND_ART = new Image();
   HAND_ART.src = "/assets/handler/hand-drawn-poses.png";
   const HAND_FRAME = 887, HAND_SCALE = 96 / HAND_FRAME;
   const HAND_ANCHOR = { x: 325, y: 706 };
   const CUFF_CUT = { x: 455, y: 505 };
   const ARM_AXIS = { x: .6, y: -.8 }, ARM_LENGTH = 570;
-  const SHOULDER_Y = 120, UPPER_ARM = 106, FOREARM = 86;
+  const SHOULDER_Y = 154, UPPER_ARM = 106, FOREARM = 86;
+  // Measured cross-sections of the sleeve artwork: position, width and center.
+  // Recenter its texture on a straight, roomy jacket sleeve instead of widening
+  // its existing bulge. The cuff still meets the unscaled hand exactly.
+  const SLEEVE_PROFILE = [[0,167,13.5],[.05,202,16],[.1,212,18],[.2,217,25.5],
+    [.3,215,30.5],[.4,215,35.5],[.5,207,37.5],[.6,199,36.5],[.7,177,34.5],[1,177,34.5]];
+  function sleeveSection(t) {
+    let i = 1;
+    while (i < SLEEVE_PROFILE.length - 1 && t > SLEEVE_PROFILE[i][0]) i++;
+    const a = SLEEVE_PROFILE[i - 1], b = SLEEVE_PROFILE[i];
+    const mix = (t - a[0]) / (b[0] - a[0]);
+    const sourceWidth = a[1] + (b[1] - a[1]) * mix, center = a[2] + (b[2] - a[2]) * mix;
+    const cuff = Math.min(1, t / .09), ease = cuff * cuff * (3 - 2 * cuff);
+    const width = (167 * HAND_SCALE + (31 - 167 * HAND_SCALE) * ease) / sourceWidth;
+    return { width, offset: 13.5 * HAND_SCALE - center * width };
+  }
   const ARM_SURFACE = document.createElement("canvas");
   ARM_SURFACE.width = W * 2; ARM_SURFACE.height = H * 2;
   const armCtx = ARM_SURFACE.getContext("2d");
@@ -1070,14 +1088,13 @@
       const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
       if (length < .001) continue;
       const vx = dx / length, vy = dy / length, stretch = length / (ARM_LENGTH / slices);
-      // Keep the cuff attached to the hand, then broaden the cloth toward the
-      // elbow and upper arm. Width never changes with the aiming direction.
-      const width = HAND_SCALE * (1 + .65 * Math.min(1, from / .2) + .12 * from);
+      const { width, offset } = sleeveSection(from);
       const xx = vx*ux*stretch - vy*px*width, xy = vx*uy*stretch - vy*py*width;
       const yx = vy*ux*stretch + vx*px*width, yy = vy*uy*stretch + vx*py*width;
       const sx = CUFF_CUT.x + ux*from*ARM_LENGTH, sy = CUFF_CUT.y + uy*from*ARM_LENGTH;
       armCtx.save();
-      armCtx.transform(xx, yx, xy, yy, a.x - xx*sx - xy*sy, a.y - yx*sx - yy*sy);
+      armCtx.transform(xx, yx, xy, yy, a.x - vy*offset - xx*sx - xy*sy,
+        a.y + vx*offset - yx*sx - yy*sy);
       clipArmSlice(from*ARM_LENGTH - 3, to*ARM_LENGTH + 3, 230, armCtx);
       armCtx.drawImage(HAND_ART, 0, 0, HAND_FRAME, HAND_FRAME, 0, 0, HAND_FRAME, HAND_FRAME);
       armCtx.restore();
@@ -1254,10 +1271,12 @@
       const k = 1 - (now - shakeT) / 230;
       if (k > 0) { sx = Math.sin(now * .14) * shakeStrength * k; sy = Math.cos(now * .19) * shakeStrength * .5 * k; } else shakeT = 0;
     }
-    ctx.clearRect(0, 0, W, H); ctx.save(); ctx.translate(sx, sy);
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.restore();
+    ctx.save(); ctx.translate(sx, sy);
     if (sx || sy) {
-      stage.style.backgroundPosition = `calc(50% + ${sx * worldScale}px) calc(55% + ${sy * worldScale}px)`; sceneMoved = true;
-    } else if (sceneMoved) { stage.style.backgroundPosition = "center 55%"; sceneMoved = false; }
+      positionScenery(sx, sy); sceneMoved = true;
+    } else if (sceneMoved) { positionScenery(); sceneMoved = false; }
     const bags = allBags();
     const heldLayout = curLevel && state === "playing" ? heldBagLayout(curLevel) : null;
     const held = heldLayout ? {
@@ -1364,7 +1383,7 @@
   function startGame() {
     ensureAudio(); clearInput(); clearBags();
     parts.length = 0; floats.length = 0; rings.length = 0; impacts.length = 0; mergeQueue = [];
-    stage.style.backgroundPosition = "center 55%"; sceneMoved = false; lastImpactAt = 0;
+    positionScenery(); sceneMoved = false; lastImpactAt = 0;
     comboCount = 0; maxCombo = 0; mergeCount = 0; highestLevel = 1;
     lastMergeAt = -Infinity; comboUntil = 0; acc = 0;
     score = 0; updateScore(); livesLeft = LIVES; buildLives();
@@ -1421,7 +1440,10 @@
     activePointerId = null; isDown = false; samples.length = 0; flickVX = 0;
     if (id !== null && canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
   }
-  const localX = (e) => { const r = canvas.getBoundingClientRect(); return (e.clientX - r.left) / r.width * W; };
+  const localX = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return ((e.clientX - r.left) / r.width * W - SCENE_X) / SCENE_SCALE;
+  };
   function setCurX(e) {
     const halfW = curLevel > 0 ? bagW(curLevel) / 2 : bagW(1) / 2;
     // Drag relative to the initial pointerdown offset so the held bag never
@@ -1473,7 +1495,7 @@
     if (!preferences.motion) {
       parts.length = 0; rings.length = 0; impacts.length = 0; flashT = 0; shakeT = 0;
       for (const b of allBags()) { b._trail.length = 0; b._sq = null; }
-      stage.style.backgroundPosition = "center 55%"; sceneMoved = false;
+      positionScenery(); sceneMoved = false;
     }
   }
   function bindSetting(id, key) {
@@ -1566,11 +1588,17 @@
 
   /* ---------- redimensionnement ---------- */
   const MAX_CANVAS_PX = 4096;
+  function positionScenery(sx = 0, sy = 0) {
+    const top = SCENE_Y + (H - H * 1.005) * .55 * SCENE_SCALE;
+    stage.style.backgroundSize = `auto ${H * 1.005 * SCENE_SCALE * worldScale}px`;
+    stage.style.backgroundPosition = `calc(50% + ${sx * SCENE_SCALE * worldScale}px) ${(top + sy * SCENE_SCALE) * worldScale}px`;
+  }
   function resize() {
     const aspect = W / H;
     let aw = Math.min(window.innerWidth, 540), ah = window.innerHeight;
     let w = aw, h = w / aspect; if (h > ah) { h = ah; w = h * aspect; }
     stage.style.width = w + "px"; stage.style.height = h + "px"; worldScale = w / W;
+    positionScenery();
     const baseDpr = Math.min(window.devicePixelRatio || 1, 3);
     const zoom = (window.visualViewport && window.visualViewport.scale) || 1;
     let dpr = baseDpr * zoom;
@@ -1578,7 +1606,8 @@
     if (longSide * dpr > MAX_CANVAS_PX) dpr = MAX_CANVAS_PX / longSide;
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
     canvas.style.width = w + "px"; canvas.style.height = h + "px";
-    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+    ctx.setTransform(canvas.width / W * SCENE_SCALE, 0, 0, canvas.height / H * SCENE_SCALE,
+      canvas.width / W * SCENE_X, canvas.height / H * SCENE_Y);
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
   }
   window.addEventListener("resize", resize);

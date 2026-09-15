@@ -15,7 +15,7 @@ class Element {
   querySelector(selector){return selector==='button'?byId.get('play'):null;}
   querySelectorAll(){return [];}
   getClientRects(){return [{}];}
-  getBoundingClientRect(){return {left:0,top:0,width:460,height:819};}
+  getBoundingClientRect(){return this.rect||{left:0,top:0,width:460,height:819};}
   setPointerCapture(id){this.capturedPointer=id;}
   hasPointerCapture(id){return this.capturedPointer===id;}
   releasePointerCapture(id){if(this.capturedPointer===id)this.capturedPointer=null;}
@@ -39,7 +39,7 @@ vm.createContext(context);
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
 scripts.forEach((m,i)=>{
   let code=m[1];
-  if(i===scripts.length-1) code=code.replace('  /* ---------- init ---------- */', '  window.test = {handlerPose,heldBagLayout,getClock:()=>handlerClock,setNext:level=>{nextLevel=level;},setHeld:(level,x)=>{curLevel=level;currentX=x;handlerArrival=handlerClock-1;},bagW,bagH,topSurfaceY,bagRenderMatrix,startGame,pauseGame,resumeGame,homeMenu,openHelp,closeHelp,makeBag,processMerges,loseLife,frame,drop,Engine,engine,allBags,impactFX,bagPose,bagMatrix,stackShadows,drawBag,isFalling,updateFX,bakeImage,IMG,BAKED,BAG_SHADOWS,Body,get:()=>({state,score,best,livesLeft,curLevel,mergeCount,maxCombo,highestLevel,runAvailable,isDown,parts:parts.length,rings:rings.length,impacts:impacts.map(x=>({...x})),shakeT}), setPrefs:(v)=>{preferences={...preferences,...v};syncPreferences();}, queue:(a,b)=>mergeQueue.push([a,b])};\n  /* ---------- init ---------- */');
+  if(i===scripts.length-1) code=code.replace('  /* ---------- init ---------- */', '  window.test = {scene:{scale:SCENE_SCALE,x:SCENE_X,y:SCENE_Y},handlerCurve,handlerPose,heldBagLayout,getClock:()=>handlerClock,setNext:level=>{nextLevel=level;},setHeld:(level,x)=>{curLevel=level;currentX=x;handlerArrival=handlerClock-1;},bagW,bagH,topSurfaceY,bagRenderMatrix,startGame,pauseGame,resumeGame,homeMenu,openHelp,closeHelp,makeBag,processMerges,loseLife,frame,drop,Engine,engine,allBags,impactFX,bagPose,bagMatrix,stackShadows,drawBag,isFalling,updateFX,bakeImage,IMG,BAKED,BAG_SHADOWS,Body,get:()=>({state,score,best,livesLeft,curLevel,mergeCount,maxCombo,highestLevel,runAvailable,isDown,parts:parts.length,rings:rings.length,impacts:impacts.map(x=>({...x})),shakeT}), setPrefs:(v)=>{preferences={...preferences,...v};syncPreferences();}, queue:(a,b)=>mergeQueue.push([a,b])};\n  /* ---------- init ---------- */');
   vm.runInContext(code,context,{filename:`inline-${i}.js`});
 });
 const t=context.test;
@@ -77,7 +77,7 @@ for(let level=1;level<=10;level++){
   t.setHeld(level,x);const pose=t.handlerPose();
   close(Math.hypot(pose.elbowX-pose.rootX,pose.elbowY-pose.rootY,pose.elbowZ),106,'upper arm does not stretch');
   close(Math.hypot(pose.elbowX-pose.x,pose.elbowY-pose.y,pose.elbowZ),86,'shorter forearm does not stretch');
-  assert.ok(pose.rootY>=106&&pose.rootY<140,'shoulder stays high inside the new doorway');
+  assert.ok(pose.rootY>=141&&pose.rootY<190,'shoulder leaves room for the sleeve below the doorway lintel');
   if(previous)assert.ok(Math.hypot(pose.elbowX-previous.elbowX,pose.elbowY-previous.elbowY)<12,'elbow does not flip when crossing the center');
   previous=pose;
   if(i>=55){
@@ -91,12 +91,15 @@ for(let level=1;level<=10;level++){
   if(level<=6&&(i===0||i===100)){
    const slope=Math.abs((pose.y-pose.elbowY)/(pose.x-pose.elbowX));
    assert.ok(slope<Math.tan(Math.PI/6),'forearm is within 30 degrees of horizontal at both limits');
-   assert.ok(pose.y<150,'outer reach lifts the hand clear of the doorway');
+   assert.ok(pose.y>=140&&pose.y<190,'horizontal reach stays below the doorway lintel');
+   for(let part=0;part<=20;part++){
+    assert.ok(t.handlerCurve(pose,part/20).y-20>=106,'the full sleeve stays below the top of the opening');
+   }
   }
  }
 }
 t.setPrefs({motion:true});
-console.log('PASS: shorter fixed-length arm, lower elbow, smooth reach and straight horizontal extension from the shoulder on the right.');
+console.log('PASS: fixed-length arm, lower elbow and horizontal extension below the doorway lintel.');
 
 // Retraction must not turn the elbow beyond the wrist after the hand opens.
 for(const x of [30,230,430]){
@@ -132,17 +135,22 @@ console.log('PASS: entry, opening fingers, paused release, retraction, and autom
 const emit=(target,type,event={})=>(target.events[type]||[]).forEach(fn=>fn(event));
 const pointer=(id,x)=>({pointerId:id,pointerType:'touch',isPrimary:true,button:0,clientX:x,
  target:byId.get('game'),cancelable:true,preventDefault(){}});
-t.startGame();step(15);
-const initial=t.handlerPose();emit(byId.get('stage'),'pointerdown',pointer(5,120));
-close(t.handlerPose().x,initial.x,'touching away from the bag does not snap the hand');
-emit(context,'pointermove',pointer(5,195));
-close(t.handlerPose().x,initial.x+75,'the hand follows the finger delta');
-const release=t.heldBagLayout(4);emit(context,'pointerup',pointer(5,195));
-assert.equal(t.allBags().length,1);close(spriteCenter(t.allBags()[0]).x,release.x,'touch release uses the final aim');
+for(const rect of [{left:0,width:320},{left:0,width:390},{left:419,width:525}]){
+ byId.get('game').rect={...rect,top:0,height:rect.width*819/460};
+ t.startGame();step(15);
+ const initial=t.handlerPose(),start=rect.left+rect.width*.3;
+ emit(byId.get('stage'),'pointerdown',pointer(5,start));
+ close(t.handlerPose().x,initial.x,'touching away from the bag does not snap the hand');
+ emit(context,'pointermove',pointer(5,start+75));
+ close((t.handlerPose().x-initial.x)*t.scene.scale*rect.width/460,75,'the hand follows the same screen distance as the finger after zooming out');
+ const release=t.heldBagLayout(4);emit(context,'pointerup',pointer(5,start+75));
+ assert.equal(t.allBags().length,1);close(spriteCenter(t.allBags()[0]).x,release.x,'touch release uses the final aim');
+}
+byId.get('game').rect=null;
 t.startGame();emit(byId.get('stage'),'pointerdown',pointer(6,230));
 emit(context,'pointercancel',pointer(6,230));emit(context,'pointerup',pointer(6,230));
 assert.equal(t.allBags().length,0);assert.equal(t.handlerPose().open,0);
-console.log('PASS: touch aiming, release, cancellation and no extra bag.');
+console.log('PASS: touch aiming stays aligned on small phones, phones and desktop; release and cancellation still work.');
 
 // A wider next bag must fit on screen before it is shown or dropped.
 for(const side of [-1,1]){
