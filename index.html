@@ -973,14 +973,14 @@
   // Grip locations are measured on the existing sprites, in image coordinates.
   const HAND_GRIPS = [[.56,.055],[.625,.058],[.49,.057],[.47,.08],[.49,.052],
     [.525,.046],[.54,.045],[.54,.042],[.575,.044],[.51,.042]];
-  const HAND_GRIP_Y = 362;
   const HAND_ART = new Image();
   HAND_ART.src = "/assets/handler/hand-drawn-poses.png";
   const HAND_FRAME = 887, HAND_SCALE = 96 / HAND_FRAME;
   const HAND_ANCHOR = { x: 325, y: 706 };
   const CUFF_CUT = { x: 455, y: 505 };
   const ARM_AXIS = { x: .6, y: -.8 }, ARM_LENGTH = 570;
-  const SHOULDER_Y = 154, UPPER_ARM = 120, FOREARM = 96;
+  const SHOULDER_X = W / 2, SHOULDER_Y = 130;
+  const UPPER_ARM = 99, FOREARM = 80, ARM_REACH = UPPER_ARM + FOREARM - .4;
   // Measured cross-sections of the sleeve artwork: position, width and center.
   // Recenter its texture on a straight, roomy jacket sleeve instead of widening
   // its existing bulge. The cuff still meets the unscaled hand exactly.
@@ -1000,22 +1000,23 @@
   ARM_SURFACE.width = W * 2; ARM_SURFACE.height = BASE_H * 2;
   const armCtx = ARM_SURFACE.getContext("2d");
 
+  function aimLimits(level) {
+    const width = bagW(level), offset = (HAND_GRIPS[level - 1][0] - .5) * width;
+    return { min:Math.max(width / 2, SHOULDER_X - ARM_REACH - offset),
+      max:Math.min(W - width / 2, SHOULDER_X + ARM_REACH - offset) };
+  }
   function heldBagLayout(level, x = currentX) {
     const [u, v] = HAND_GRIPS[level - 1];
-    const reach = Math.max(-1, Math.min(1, (x - W / 2) / (W / 2 - bagW(level) / 2)));
-    const side = Math.abs(reach), lift = side * side * (3 - 2 * side);
+    const limits = aimLimits(level);
+    x = Math.max(limits.min, Math.min(limits.max, x));
     const entry = preferences.motion ? Math.max(0, 1 - (handlerClock - handlerArrival) / .18) : 0;
-    const bob = preferences.motion ? Math.sin(handlerClock * 2.7) * 1.2 : 0;
-    const gripX = x + (u - .5) * bagW(level), direction = reach < 0 ? -1 : 1;
-    const radius = HAND_GRIP_Y - SHOULDER_Y + (UPPER_ARM + FOREARM - HAND_GRIP_Y + SHOULDER_Y) * lift;
-    const swing = side * Math.PI / 2;
-    const shoulder = gripX - direction * Math.sin(swing) * radius;
-    const rootX = Math.max(155, Math.min(305, shoulder));
-    const dx = gripX - rootX;
-    const down = rootX === shoulder ? Math.cos(swing) * radius : Math.sqrt(Math.max(0, radius * radius - dx * dx));
-    const gripY = SHOULDER_Y + down + (bob - entry * entry * 10) * (1 - side);
+    const gripX = x + (u - .5) * bagW(level), dx = gripX - SHOULDER_X;
+    // A compact, almost straight arm swings around one shoulder. The endpoint
+    // follows a fixed-radius arc instead of dragging the shoulder sideways.
+    const down = Math.abs(dx) >= ARM_REACH - .000001 ? 0 : Math.sqrt(Math.max(0, ARM_REACH * ARM_REACH - dx * dx));
+    const gripY = SHOULDER_Y + down;
     return { x, y: gripY + (.5 - v) * bagH(level),
-      gripX, gripY, rootX, reach, alpha: 1 - entry * .65 };
+      gripX, gripY, rootX:SHOULDER_X, alpha: 1 - entry * .65 };
   }
   function solveHandlerArm(pose) {
     // Both bones have constant lengths in the actual drawing plane. A single
@@ -1045,8 +1046,10 @@
     if (age >= .39) return null;
     const opening = Math.min(1, age / .075);
     const retreat = Math.pow(Math.max(0, Math.min(1, (age - .09) / .30)), 2);
+    const fold = 1 - .18 * retreat;
     return solveHandlerArm({ ...handlerRelease, open: opening,
-      y: handlerRelease.y - 32 * retreat, rootY: handlerRelease.rootY - 32 * retreat,
+      x: handlerRelease.rootX + (handlerRelease.x - handlerRelease.rootX) * fold,
+      y: handlerRelease.rootY + (handlerRelease.y - handlerRelease.rootY) * fold,
       alpha: 1 - retreat });
   }
   function handlerCurve(pose, t) {
@@ -1111,10 +1114,11 @@
     // Fade the whole sleeve after compositing, so overlapping texture strips
     // cannot create bright seams in the dark part of the arm.
     armCtx.save(); armCtx.globalCompositeOperation = "destination-in";
-    const shade = armCtx.createLinearGradient(pose.x, pose.y, pose.rootX, pose.rootY);
-    shade.addColorStop(0, "rgba(0,0,0,1)"); shade.addColorStop(.35, "rgba(0,0,0,1)");
-    shade.addColorStop(.6, "rgba(0,0,0,.8)"); shade.addColorStop(.82, "rgba(0,0,0,.22)");
-    shade.addColorStop(1, "rgba(0,0,0,0)");
+    // Darkness is anchored at the shoulder too, so the visible attachment
+    // remains in the same place as the arm rotates.
+    const shade = armCtx.createRadialGradient(SHOULDER_X, SHOULDER_Y, 0, SHOULDER_X, SHOULDER_Y, 48);
+    shade.addColorStop(0, "rgba(0,0,0,0)"); shade.addColorStop(.25, "rgba(0,0,0,.08)");
+    shade.addColorStop(.6, "rgba(0,0,0,.5)"); shade.addColorStop(1, "rgba(0,0,0,1)");
     armCtx.fillStyle = shade; armCtx.fillRect(0, 0, W, BASE_H); armCtx.restore();
     ctx.save(); ctx.globalAlpha = pose.alpha;
     ctx.drawImage(ARM_SURFACE, 0, 0, ARM_SURFACE.width, ARM_SURFACE.height, 0, 0, W, BASE_H);
@@ -1355,15 +1359,15 @@
   }
   function spawnCurrent() {
     curLevel = nextLevel; nextLevel = randDrop(); updatePreview();
-    const halfW = bagW(curLevel) / 2;
-    currentX = Math.max(halfW, Math.min(W - halfW, currentX));
+    const limits = aimLimits(curLevel);
+    currentX = Math.max(limits.min, Math.min(limits.max, currentX));
     handlerArrival = handlerClock; handlerRelease = null;
     requestBag(curLevel - 1); requestBag(nextLevel - 1);
   }
   function drop() {
     if (state !== "playing" || curLevel === 0 || spawnTimer > 0) return;
-    const halfW = bagW(curLevel) / 2;
-    const x = Math.max(halfW, Math.min(W - halfW, currentX));
+    const limits = aimLimits(curLevel);
+    const x = Math.max(limits.min, Math.min(limits.max, currentX));
     highestLevel = Math.max(highestLevel, curLevel);
     const [cx, cy] = BAG_CENTERS[curLevel - 1];
     const size = Math.max(bagW(curLevel), bagH(curLevel));
@@ -1454,11 +1458,11 @@
     return ((e.clientX - r.left) / r.width * scene.width - scene.x) / scene.scale;
   };
   function setCurX(e) {
-    const halfW = curLevel > 0 ? bagW(curLevel) / 2 : bagW(1) / 2;
+    const limits = aimLimits(curLevel || 1);
     // Drag relative to the initial pointerdown offset so the held bag never
     // jumps under the finger — only the *delta* of subsequent movement counts.
     const target = isDown ? localX(e) + dragOffsetX : localX(e);
-    currentX = Math.max(halfW, Math.min(W - halfW, target));
+    currentX = Math.max(limits.min, Math.min(limits.max, target));
   }
   function pushSample() { samples.push({ t: performance.now(), x: currentX }); if (samples.length > 8) samples.shift(); }
   function computeFlick() {
@@ -1676,8 +1680,8 @@
       handlerClock += dt;
       const direction = Number(heldKeys.has("ArrowRight")) - Number(heldKeys.has("ArrowLeft"));
       if (direction && curLevel) {
-        const half = bagW(curLevel) / 2;
-        currentX = Math.max(half, Math.min(W - half, currentX + direction * dt * 290));
+        const limits = aimLimits(curLevel);
+        currentX = Math.max(limits.min, Math.min(limits.max, currentX + direction * dt * 290));
       }
       acc += dt * 1000; let steps = 0;
       while (acc >= STEP && steps < 5) { settleGroundBags(); Engine.update(engine, STEP); acc -= STEP; steps++; }

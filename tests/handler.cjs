@@ -55,7 +55,7 @@ for(let level=1;level<=10;level++){
  for(const x of [t.bagW(level)/2,230,460-t.bagW(level)/2]){
   t.startGame();t.setHeld(level,x);
   const held=t.heldBagLayout(level),hand=t.handlerPose();
-  assert.equal(hand.open,0);assert.ok(hand.rootX>=155&&hand.rootX<=305);
+  assert.equal(hand.open,0);assert.equal(hand.rootX,230);assert.equal(hand.rootY,130);
   close(hand.x,held.gripX,'hand follows the sprite grip');
   close(hand.y,held.gripY,'hand stays on the grip');
   t.drop();const bag=t.allBags()[0],center=spriteCenter(bag);
@@ -73,42 +73,46 @@ let shortestSleeve=Infinity,longestSleeve=0;
 for(let level=1;level<=10;level++){
  t.startGame();
  let previous=null;
- for(let i=0;i<=100;i++){
-  const half=t.bagW(level)/2,x=half+(460-2*half)*i/100;
+ for(let i=0;i<=400;i++){
+  const half=t.bagW(level)/2,x=half+(460-2*half)*i/400;
   t.setHeld(level,x);const pose=t.handlerPose();
-  close(Math.hypot(pose.elbowX-pose.rootX,pose.elbowY-pose.rootY),120,'upper arm does not stretch');
-  close(Math.hypot(pose.elbowX-pose.x,pose.elbowY-pose.y),96,'shorter forearm does not stretch');
+  assert.equal(pose.rootX,230,'shoulder never slides sideways');
+  assert.equal(pose.rootY,130,'shoulder stays fixed near the top of the opening');
+  close(Math.hypot(pose.x-pose.rootX,pose.y-pose.rootY),178.6,'hand rotates around the shoulder on a fixed-radius arc');
+  close(Math.hypot(pose.elbowX-pose.rootX,pose.elbowY-pose.rootY),99,'upper arm does not stretch');
+  close(Math.hypot(pose.elbowX-pose.x,pose.elbowY-pose.y),80,'shorter forearm does not stretch');
   let clothLength=0,clothPoint=t.handlerCurve(pose,0);
   for(let part=1;part<=200;part++){
    const next=t.handlerCurve(pose,part/200);
    clothLength+=Math.hypot(next.x-clothPoint.x,next.y-clothPoint.y);clothPoint=next;
   }
   shortestSleeve=Math.min(shortestSleeve,clothLength);longestSleeve=Math.max(longestSleeve,clothLength);
-  assert.ok(pose.rootY>=141&&pose.rootY<190,'shoulder leaves room for the sleeve below the doorway lintel');
   if(previous)assert.ok(Math.hypot(pose.elbowX-previous.elbowX,pose.elbowY-previous.elbowY)<12,'elbow does not flip when crossing the center');
   previous=pose;
-  if(i>=55){
+  if(i>=220){
    const dx=pose.x-pose.rootX,dy=pose.y-pose.rootY;
    const along=((pose.elbowX-pose.rootX)*dx+(pose.elbowY-pose.rootY)*dy)/(dx*dx+dy*dy);
    assert.ok(along>0&&along<1,'the right elbow stays between the shoulder and the wrist');
   }
-  if(i===50){
+  if(i===200){
    assert.ok((pose.elbowY-pose.rootY)/(pose.y-pose.rootY)>.54,'elbow sits lower on the neutral arm');
+   const dx=pose.x-pose.rootX,dy=pose.y-pose.rootY;
+   assert.ok(Math.abs((pose.elbowX-pose.rootX)*dy-(pose.elbowY-pose.rootY)*dx)/Math.hypot(dx,dy)<7,'the central elbow stays close to the shoulder-to-hand line');
   }
-  if(level<=6&&i===100)close(pose.y,pose.rootY,'full right reach is horizontal from the shoulder');
-  if(level<=6&&(i===0||i===100)){
+  if(level<=6&&i===400)close(pose.y,pose.rootY,'full right reach is horizontal from the shoulder');
+  if(level<=6&&(i===0||i===400)){
    const slope=Math.abs((pose.y-pose.elbowY)/(pose.x-pose.elbowX));
    assert.ok(slope<Math.tan(Math.PI/6),'forearm is within 30 degrees of horizontal at both limits');
-   assert.ok(pose.y>=140&&pose.y<190,'horizontal reach stays below the doorway lintel');
+   assert.ok(pose.y>=124&&pose.y<140,'horizontal reach stays high inside the doorway');
    for(let part=0;part<=20;part++){
-    assert.ok(t.handlerCurve(pose,part/20).y-20>=106,'the full sleeve stays below the top of the opening');
+    assert.ok(t.handlerCurve(pose,part/20).y-18>=106,'the full sleeve stays below the top of the opening');
    }
   }
  }
 }
 assert.ok(longestSleeve-shortestSleeve<1,'visible cloth length stays constant within one pixel across the entire sweep');
 t.setPrefs({motion:true});
-console.log('PASS: fixed 2D bones and visible sleeve length, slight central bend and horizontal extension below the lintel.');
+console.log('PASS: shorter, nearly straight arm rotates around one high fixed shoulder, with constant bone and sleeve lengths.');
 
 // Retraction must not turn the elbow beyond the wrist after the hand opens.
 for(const x of [30,230,430]){
@@ -116,6 +120,9 @@ for(const x of [30,230,430]){
  for(let i=0;i<23;i++){
   const pose=t.handlerPose();
   if(pose){
+   assert.equal(pose.rootX,230);assert.equal(pose.rootY,130,'release also keeps the shoulder fixed');
+   close(Math.hypot(pose.elbowX-pose.rootX,pose.elbowY-pose.rootY),99,'release does not shorten the upper arm');
+   close(Math.hypot(pose.elbowX-pose.x,pose.elbowY-pose.y),80,'release folds the forearm without stretching it');
    const dx=pose.x-pose.rootX,dy=pose.y-pose.rootY;
    const along=((pose.elbowX-pose.rootX)*dx+(pose.elbowY-pose.rootY)*dy)/(dx*dx+dy*dy);
    assert.ok(along>0&&along<1,'elbow never folds beyond the wrist during release');

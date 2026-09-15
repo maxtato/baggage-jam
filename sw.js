@@ -1,4 +1,4 @@
-const CACHE = "baggage-jam-full-scene-fixed-arm-v1";
+const CACHE = "baggage-jam-high-shoulder-v1";
 const SHELL = ["/", "/index.html", "/apple-icon.png", "/manifest.json", "/assets/bags/bag-01-hd.webp", "/assets/bags/bag-02-hd.webp", "/assets/bags/bag-03-hd.webp", "/assets/handler/hand-drawn-poses.png", "/assets/scenes/raised-cargo-hold.webp"];
 
 self.addEventListener("install", (e) => {
