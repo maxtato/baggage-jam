@@ -39,7 +39,7 @@ vm.createContext(context);
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
 scripts.forEach((m,i)=>{
   let code=m[1];
-  if(i===scripts.length-1) code=code.replace('  /* ---------- init ---------- */', '  window.test = {handlerPose,heldBagLayout,getClock:()=>handlerClock,setHeld:(level,x)=>{curLevel=level;currentX=x;handlerArrival=handlerClock-1;},bagW,bagH,topSurfaceY,bagRenderMatrix,startGame,pauseGame,resumeGame,homeMenu,openHelp,closeHelp,makeBag,processMerges,loseLife,frame,drop,Engine,engine,allBags,impactFX,bagPose,bagMatrix,stackShadows,drawBag,isFalling,updateFX,bakeImage,IMG,BAKED,BAG_SHADOWS,Body,get:()=>({state,score,best,livesLeft,curLevel,mergeCount,maxCombo,highestLevel,runAvailable,isDown,parts:parts.length,rings:rings.length,impacts:impacts.map(x=>({...x})),shakeT}), setPrefs:(v)=>{preferences={...preferences,...v};syncPreferences();}, queue:(a,b)=>mergeQueue.push([a,b])};\n  /* ---------- init ---------- */');
+  if(i===scripts.length-1) code=code.replace('  /* ---------- init ---------- */', '  window.test = {handlerPose,heldBagLayout,getClock:()=>handlerClock,setNext:level=>{nextLevel=level;},setHeld:(level,x)=>{curLevel=level;currentX=x;handlerArrival=handlerClock-1;},bagW,bagH,topSurfaceY,bagRenderMatrix,startGame,pauseGame,resumeGame,homeMenu,openHelp,closeHelp,makeBag,processMerges,loseLife,frame,drop,Engine,engine,allBags,impactFX,bagPose,bagMatrix,stackShadows,drawBag,isFalling,updateFX,bakeImage,IMG,BAKED,BAG_SHADOWS,Body,get:()=>({state,score,best,livesLeft,curLevel,mergeCount,maxCombo,highestLevel,runAvailable,isDown,parts:parts.length,rings:rings.length,impacts:impacts.map(x=>({...x})),shakeT}), setPrefs:(v)=>{preferences={...preferences,...v};syncPreferences();}, queue:(a,b)=>mergeQueue.push([a,b])};\n  /* ---------- init ---------- */');
   vm.runInContext(code,context,{filename:`inline-${i}.js`});
 });
 const t=context.test;
@@ -120,6 +120,18 @@ t.startGame();emit(byId.get('stage'),'pointerdown',pointer(6,230));
 emit(context,'pointercancel',pointer(6,230));emit(context,'pointerup',pointer(6,230));
 assert.equal(t.allBags().length,0);assert.equal(t.handlerPose().open,0);
 console.log('PASS: touch aiming, release, cancellation and no extra bag.');
+
+// A wider next bag must fit on screen before it is shown or dropped.
+for(const side of [-1,1]){
+ t.startGame();t.setHeld(1,side<0?t.bagW(1)/2:460-t.bagW(1)/2);t.setNext(6);
+ t.drop();step(30);assert.equal(t.get().curLevel,6);
+ const held=t.heldBagLayout(6);
+ assert.ok(held.x>=t.bagW(6)/2&&held.x<=460-t.bagW(6)/2,'wider next bag stays fully on screen');
+ t.drop();const bag=t.allBags().find(b=>b.lvl===6);
+ close(spriteCenter(bag).x,held.x,'wider next bag does not jump sideways when released');
+}
+console.log('PASS: a wider next bag remains visible and releases without a jump at either screen edge.');
+
 
 t.setPrefs({motion:false});t.startGame();
 const still=t.handlerPose();assert.equal(still.alpha,1);step(15);

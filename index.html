@@ -1322,6 +1322,8 @@
   }
   function spawnCurrent() {
     curLevel = nextLevel; nextLevel = randDrop(); updatePreview();
+    const halfW = bagW(curLevel) / 2;
+    currentX = Math.max(halfW, Math.min(W - halfW, currentX));
     handlerArrival = handlerClock; handlerRelease = null;
     requestBag(curLevel - 1); requestBag(nextLevel - 1);
   }
