@@ -1,4 +1,4 @@
-const CACHE = "baggage-jam-v9-baggage-handler";
+const CACHE = "baggage-jam-v10-no-handler";
 const SHELL = ["/", "/index.html", "/apple-icon.png", "/manifest.json"];
 
 self.addEventListener("install", (e) => {
