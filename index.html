@@ -537,6 +537,52 @@
   });
 
 
+  // Centerlines traced over the HD artwork, in fractions of sprite width/height.
+  // Separate solid strokes preserve the open space inside each raised handle.
+  const HANDLE_PATHS = {
+    6: [
+      [.075, [[.36,.066],[.36,.041],[.68,.050],[.68,.075]]],
+      [.052, [[.365,.087],[.365,.246]]], [.052, [[.684,.093],[.684,.269]]],
+      [.049, [[.335,.251],[.41,.234],[.49,.229],[.565,.240],[.63,.270]]]
+    ],
+    7: [
+      [.077, [[.385,.067],[.388,.039],[.692,.046],[.695,.072]]],
+      [.057, [[.391,.082],[.391,.267]]], [.057, [[.698,.087],[.698,.279]]],
+      [.054, [[.337,.268],[.408,.248],[.49,.249],[.559,.262],[.622,.281]]]
+    ],
+    8: [
+      [.072, [[.399,.054],[.399,.035],[.686,.039],[.686,.061]]],
+      [.058, [[.40,.073],[.40,.222]]], [.058, [[.687,.077],[.687,.234]]],
+      [.046, [[.362,.217],[.429,.202],[.51,.204],[.585,.225],[.635,.239]]]
+    ],
+    9: [
+      [.068, [[.452,.061],[.452,.038],[.702,.043],[.702,.067]]],
+      [.052, [[.452,.074],[.452,.194]]], [.052, [[.703,.078],[.703,.219]]],
+      [.049, [[.397,.206],[.444,.189],[.511,.183],[.581,.193],[.642,.221]]]
+    ],
+    10: [[.049, [[.398,.123],[.410,.063],[.452,.041],[.516,.037],[.592,.055],[.623,.079],[.623,.137]]]]
+  };
+  function addHandleColliders(shell, level, x, y, w, h, opts) {
+    const paths = HANDLE_PATHS[level];
+    if (!paths) return shell;
+    const size = Math.max(w, h), [cx, cy] = BAG_CENTERS[level - 1];
+    const left = x - w / 2 - cx * size, top = y - h / 2 - cy * size;
+    const parts = [shell];
+    shell.label = "luggage-shell";
+    for (const [width, points] of paths) {
+      const thickness = width * w;
+      for (let i = 1; i < points.length; i++) {
+        const a = points[i - 1], b = points[i], dx = (b[0] - a[0]) * w, dy = (b[1] - a[1]) * h;
+        parts.push(Bodies.rectangle(left + (a[0] + b[0]) * w / 2, top + (a[1] + b[1]) * h / 2,
+          Math.hypot(dx, dy) + thickness * .3, thickness,
+          { ...opts, label: "luggage-handle", density: opts.density * .15, angle: Math.atan2(dy, dx) }));
+      }
+    }
+    const body = Body.create({ ...opts, parts });
+    // Keep the heavy shell's center of mass and existing sprite alignment.
+    Body.setCentre(body, { x, y });
+    return body;
+  }
   function makeBag(level, x, y) {
     const w = bagW(level), h = bagH(level);
     const scale = Math.max(w, h);
@@ -561,6 +607,7 @@
         ...opts, chamfer: { radius: Math.min(w, h) * 0.14 * SHRINK },
       });
     }
+    b = addHandleColliders(b, level, x, y, w, h, opts);
     b.lvl = level; b.merging = false; b._born = performance.now(); b._pop = 0; b._landed = false; b._contactAt = -Infinity; b._trail = []; b._trailAt = 0;
     Composite.add(world, b);
     return b;
@@ -831,12 +878,15 @@
   }
   function topSurfaceY(body, x) {
     let top = Infinity;
-    const v = body.vertices;
-    for (let i = 0; i < v.length; i++) {
-      const a = v[i], b = v[(i + 1) % v.length];
-      if (x < Math.min(a.x, b.x) || x > Math.max(a.x, b.x)) continue;
-      const y = Math.abs(b.x - a.x) < .001 ? Math.min(a.y, b.y) : a.y + (x - a.x) / (b.x - a.x) * (b.y - a.y);
-      top = Math.min(top, y);
+    const parts = body.parts || [body], start = parts.length > 1 ? 1 : 0;
+    for (let part = start; part < parts.length; part++) {
+      const v = parts[part].vertices;
+      for (let i = 0; i < v.length; i++) {
+        const a = v[i], b = v[(i + 1) % v.length];
+        if (x < Math.min(a.x, b.x) || x > Math.max(a.x, b.x)) continue;
+        const y = Math.abs(b.x - a.x) < .001 ? Math.min(a.y, b.y) : a.y + (x - a.x) / (b.x - a.x) * (b.y - a.y);
+        top = Math.min(top, y);
+      }
     }
     return top;
   }
