@@ -11,7 +11,8 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/apple-icon.png" />
 <link rel="icon" type="image/png" href="/apple-icon.png" />
-<title>Baggage Jam</title>
+<title>Baggage Jam, essai bras et main</title>
+<link rel="preload" as="image" href="/assets/handler/hand-drawn-poses.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Quicksand:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&family=Permanent+Marker&display=swap" rel="stylesheet" />
@@ -236,7 +237,7 @@
         </header>
         <div class="menu-layout">
           <div class="menu-copy">
-            <div class="flight-label"><span>BJ 001</span>Embarquement immédiat</div>
+            <div class="flight-label"><span>ESSAI</span>Bras et main</div>
             <h1 class="game-title">BAGGAGE<span>JAM</span></h1>
             <p class="tag">Les valises s'empilent.<br>À toi de faire de la place.</p>
             <button id="play" class="big-btn">C'est parti</button>
@@ -462,6 +463,7 @@
   let curLevel = 0, nextLevel = 1;
   let currentX = W / 2;
   let spawnTimer = 0, flickVX = 0;
+  let handlerClock = 0, handlerArrival = 0, handlerRelease = null;
   let livesLeft = LIVES;
   let nearSpill = false;
   let flashT = 0, shakeT = 0;
@@ -956,6 +958,113 @@
     } else { ctx.fillStyle = BAG_COLORS[level - 1]; ctx.beginPath(); ctx.arc(0, 0, RADII[level - 1], 0, Math.PI * 2); ctx.fill(); }
     ctx.restore();
   }
+  // Grip locations are measured on the existing sprites, in image coordinates.
+  const HAND_GRIPS = [[.56,.055],[.625,.058],[.49,.057],[.47,.08],[.49,.052],
+    [.525,.046],[.54,.045],[.54,.042],[.575,.044],[.51,.042]];
+  const HAND_GRIP_Y = 254;
+  const HAND_ART = new Image();
+  HAND_ART.src = "/assets/handler/hand-drawn-poses.png";
+  const HAND_FRAME = 887, HAND_SCALE = 96 / HAND_FRAME;
+  const HAND_ANCHOR = { x: 325, y: 706 };
+  const CUFF_CUT = { x: 455, y: 505 };
+  const ARM_AXIS = { x: .6, y: -.8 }, ARM_LENGTH = 570;
+
+  function heldBagLayout(level, x = currentX) {
+    const [u, v] = HAND_GRIPS[level - 1];
+    const entry = preferences.motion ? Math.max(0, 1 - (handlerClock - handlerArrival) / .18) : 0;
+    const bob = preferences.motion ? Math.sin(handlerClock * 2.7) * 1.2 : 0;
+    const gripY = HAND_GRIP_Y + bob - entry * entry * 10;
+    return { x, y: gripY + (.5 - v) * bagH(level),
+      gripX: x + (u - .5) * bagW(level), gripY, alpha: 1 - entry * .65 };
+  }
+  function handlerPose() {
+    if (state !== "playing") return null;
+    if (curLevel) {
+      const held = heldBagLayout(curLevel);
+      const rootX = Math.max(185, Math.min(309, held.gripX + 64)), rootY = 177;
+      const angle = Math.max(-1.25, Math.min(.45,
+        Math.atan2(rootY - held.gripY, rootX - held.gripX) - Math.atan2(ARM_AXIS.y, ARM_AXIS.x)));
+      return { x: held.gripX, y: held.gripY, open: 0, alpha: held.alpha,
+        rootX, rootY, angle };
+    }
+    if (!handlerRelease || !preferences.motion) return null;
+    const age = handlerClock - handlerRelease.time;
+    if (age >= .39) return null;
+    const opening = Math.min(1, age / .075);
+    const retreat = Math.pow(Math.max(0, Math.min(1, (age - .09) / .30)), 2);
+    return { ...handlerRelease, open: opening,
+      x: handlerRelease.x + (handlerRelease.rootX - 24 - handlerRelease.x) * retreat,
+      y: handlerRelease.y - 65 * retreat, alpha: 1 - retreat,
+      angle: handlerRelease.angle * (1 - retreat * .4) };
+  }
+  function handlerCurve(pose, t) {
+    const ca = Math.cos(pose.angle), sa = Math.sin(pose.angle);
+    const cuffX = (CUFF_CUT.x - HAND_ANCHOR.x) * HAND_SCALE;
+    const cuffY = (CUFF_CUT.y - HAND_ANCHOR.y) * HAND_SCALE;
+    const start = { x: pose.x + cuffX*ca - cuffY*sa, y: pose.y + cuffX*sa + cuffY*ca };
+    const end = { x: pose.rootX, y: pose.rootY };
+    const bend = Math.min(45, Math.hypot(end.x - start.x, end.y - start.y) * .4);
+    const c1 = { x: start.x + (ARM_AXIS.x*ca - ARM_AXIS.y*sa)*bend,
+      y: start.y + (ARM_AXIS.x*sa + ARM_AXIS.y*ca)*bend };
+    const c2 = { x: end.x - (end.x - start.x)*.28, y: end.y - (end.y - start.y)*.28 };
+    const s = 1 - t;
+    return { x: s*s*s*start.x + 3*s*s*t*c1.x + 3*s*t*t*c2.x + t*t*t*end.x,
+      y: s*s*s*start.y + 3*s*s*t*c1.y + 3*s*t*t*c2.y + t*t*t*end.y };
+  }
+  function clipArmSlice(from, to, halfWidth) {
+    const ux = ARM_AXIS.x, uy = ARM_AXIS.y, px = -uy, py = ux;
+    ctx.beginPath();
+    ctx.moveTo(CUFF_CUT.x + ux*from - px*halfWidth, CUFF_CUT.y + uy*from - py*halfWidth);
+    ctx.lineTo(CUFF_CUT.x + ux*to - px*halfWidth, CUFF_CUT.y + uy*to - py*halfWidth);
+    ctx.lineTo(CUFF_CUT.x + ux*to + px*halfWidth, CUFF_CUT.y + uy*to + py*halfWidth);
+    ctx.lineTo(CUFF_CUT.x + ux*from + px*halfWidth, CUFF_CUT.y + uy*from + py*halfWidth);
+    ctx.closePath(); ctx.clip();
+  }
+  function drawHandlerSleeve(pose) {
+    if (!pose || !HAND_ART.complete || !HAND_ART.naturalWidth) return;
+    const ux = ARM_AXIS.x, uy = ARM_AXIS.y, px = -uy, py = ux;
+    // Texture strips bend the cloth while preserving hand size and keeping the
+    // shoulder inside the cargo hold even when the player aims at either edge.
+    const slices = 24;
+    for (let i = 0; i < slices; i++) {
+      const from = i / slices, to = (i + 1) / slices;
+      const a = handlerCurve(pose, from), b = handlerCurve(pose, to);
+      const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
+      if (length < .001) continue;
+      const vx = dx / length, vy = dy / length, stretch = length / (ARM_LENGTH / slices);
+      const xx = vx*ux*stretch - vy*px*HAND_SCALE, xy = vx*uy*stretch - vy*py*HAND_SCALE;
+      const yx = vy*ux*stretch + vx*px*HAND_SCALE, yy = vy*uy*stretch + vx*py*HAND_SCALE;
+      const sx = CUFF_CUT.x + ux*from*ARM_LENGTH, sy = CUFF_CUT.y + uy*from*ARM_LENGTH;
+      ctx.save(); ctx.globalAlpha = pose.alpha * .91;
+      ctx.transform(xx, yx, xy, yy, a.x - xx*sx - xy*sy, a.y - yx*sx - yy*sy);
+      clipArmSlice(from*ARM_LENGTH - 3, to*ARM_LENGTH + 3, 230);
+      ctx.drawImage(HAND_ART, 0, 0, HAND_FRAME, HAND_FRAME, 0, 0, HAND_FRAME, HAND_FRAME);
+      ctx.restore();
+    }
+  }
+  function drawHandlerHand(pose) {
+    if (!pose || !HAND_ART.complete || !HAND_ART.naturalWidth) return;
+    ctx.save(); ctx.translate(pose.x, pose.y); ctx.rotate(pose.angle); ctx.scale(HAND_SCALE, HAND_SCALE);
+    ctx.translate(-HAND_ANCHOR.x, -HAND_ANCHOR.y);
+    clipArmSlice(-1000, 2, 550);
+    // Only the fingers change pose. The cuff and the drawn sleeve stay aligned.
+    if (pose.open < 1) {
+      ctx.globalAlpha = pose.alpha * (1 - pose.open);
+      ctx.drawImage(HAND_ART, 0, 0, HAND_FRAME, HAND_FRAME, 0, 0, HAND_FRAME, HAND_FRAME);
+    }
+    if (pose.open > 0) {
+      ctx.globalAlpha = pose.alpha * pose.open;
+      ctx.drawImage(HAND_ART, HAND_FRAME, 0, HAND_FRAME, HAND_FRAME, 0, 0, HAND_FRAME, HAND_FRAME);
+    }
+    ctx.restore();
+  }
+  function drawHoldShade() {
+    ctx.save(); ctx.beginPath(); ctx.roundRect(114, 156, 219, 207, 16); ctx.clip();
+    const shade = ctx.createLinearGradient(230, 156, 230, 354);
+    shade.addColorStop(0, "rgba(2,7,11,.32)"); shade.addColorStop(.5, "rgba(2,7,11,.18)");
+    shade.addColorStop(1, "rgba(2,7,11,0)");
+    ctx.fillStyle = shade; ctx.fillRect(110, 150, 230, 220); ctx.restore();
+  }
   function drawGroundShadow(bag, now) {
     const { x, y } = bag.position, level = bag.lvl;
     if (x < LEFT_X - 25 || x > RIGHT_X + 25 || y > FLOOR_Y + 40) return;
@@ -1076,13 +1185,14 @@
   }
   function drawAim(now) {
     if (!isDown || !curLevel || state !== "playing") return;
+    const held = heldBagLayout(curLevel);
     let targetY = FLOOR_Y;
     for (const b of allBags()) {
-      if (b._landed && currentX >= b.bounds.min.x && currentX <= b.bounds.max.x && b.bounds.min.y > SPAWN_Y + 20) targetY = Math.min(targetY, b.bounds.min.y);
+      if (b._landed && currentX >= b.bounds.min.x && currentX <= b.bounds.max.x && b.bounds.min.y > held.y + 20) targetY = Math.min(targetY, b.bounds.min.y);
     }
     ctx.save(); ctx.strokeStyle = "#202821"; ctx.globalAlpha = .22; ctx.lineWidth = 1.4;
     ctx.setLineDash([3, 8]); ctx.lineDashOffset = preferences.motion ? -now / 55 : 0;
-    ctx.beginPath(); ctx.moveTo(currentX, SPAWN_Y + bagH(curLevel) / 2 + 10); ctx.lineTo(currentX, targetY - 6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(currentX, held.y + bagH(curLevel) / 2 + 10); ctx.lineTo(currentX, targetY - 6); ctx.stroke();
     ctx.setLineDash([]); ctx.globalAlpha = .16; ctx.fillStyle = "#202821";
     ctx.beginPath(); ctx.ellipse(currentX, targetY - 3, Math.min(26, bagW(curLevel) * .35), 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
   }
@@ -1097,10 +1207,11 @@
       stage.style.backgroundPosition = `calc(50% + ${sx * worldScale}px) calc(55% + ${sy * worldScale}px)`; sceneMoved = true;
     } else if (sceneMoved) { stage.style.backgroundPosition = "center 55%"; sceneMoved = false; }
     const bags = allBags();
-    const held = curLevel && state === "playing" ? {
-      lvl: curLevel, position: { x: currentX, y: SPAWN_Y }, angle: 0,
-      bounds: { min: { x: currentX - bagW(curLevel) / 2, y: SPAWN_Y - bagH(curLevel) / 2 },
-        max: { x: currentX + bagW(curLevel) / 2, y: SPAWN_Y + bagH(curLevel) / 2 } },
+    const heldLayout = curLevel && state === "playing" ? heldBagLayout(curLevel) : null;
+    const held = heldLayout ? {
+      lvl: curLevel, position: { x: heldLayout.x, y: heldLayout.y }, angle: 0,
+      bounds: { min: { x: heldLayout.x - bagW(curLevel) / 2, y: heldLayout.y - bagH(curLevel) / 2 },
+        max: { x: heldLayout.x + bagW(curLevel) / 2, y: heldLayout.y + bagH(curLevel) / 2 } },
     } : null;
     const shadows = stackShadows(bags, held);
     drawCart(now);
@@ -1111,6 +1222,9 @@
     for (const b of bags) drawGroundShadow(b, now);
     if (held) drawGroundShadow(held, now);
     ctx.restore();
+    drawHoldShade();
+    const handler = handlerPose();
+    drawHandlerSleeve(handler);
     drawAim(now); drawImpacts();
     for (const b of bags) drawMotionTrail(b, now);
     // Lower bags are painted first, allowing upper bags to cast contact shadows onto them.
@@ -1124,7 +1238,11 @@
 
       drawBag(b.lvl, b.position.x, b.position.y, b.angle, mul, preferences.motion ? b._sq : null, now, b, shadows.get(b));
     }
-    if (curLevel > 0 && state === "playing") drawBag(curLevel, currentX, SPAWN_Y + (preferences.motion ? Math.sin(now / 360) * 1.5 : 0), 0, 1);
+    if (heldLayout) {
+      ctx.save(); ctx.globalAlpha = heldLayout.alpha;
+      drawBag(curLevel, heldLayout.x, heldLayout.y, 0, 1); ctx.restore();
+    }
+    drawHandlerHand(handler);
     drawParticles(); drawImpacts(true); drawFloats(now);
     if (flashT && preferences.motion && now - flashT < 180) {
       ctx.globalAlpha = .12 * (1 - (now - flashT) / 180); ctx.fillStyle = "#f5cc43"; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
@@ -1157,6 +1275,7 @@
   }
   function spawnCurrent() {
     curLevel = nextLevel; nextLevel = randDrop(); updatePreview();
+    handlerArrival = handlerClock; handlerRelease = null;
     requestBag(curLevel - 1); requestBag(nextLevel - 1);
   }
   function drop() {
@@ -1166,9 +1285,12 @@
     highestLevel = Math.max(highestLevel, curLevel);
     const [cx, cy] = BAG_CENTERS[curLevel - 1];
     const size = Math.max(bagW(curLevel), bagH(curLevel));
-    const b = makeBag(curLevel, x + cx * size, SPAWN_Y + cy * size);
+    const held = heldBagLayout(curLevel, x);
+    const pose = handlerPose();
+    const b = makeBag(curLevel, held.x + cx * size, held.y + cy * size);
     Body.setVelocity(b, { x: flickVX, y: 2 });
     sfxDrop();
+    handlerRelease = { ...pose, x: held.gripX, y: held.gripY, time: handlerClock };
     curLevel = 0; spawnTimer = COOLDOWN; flickVX = 0;
   }
   function clearBags() { for (const b of allBags()) Composite.remove(world, b); }
@@ -1193,11 +1315,12 @@
     lastMergeAt = -Infinity; comboUntil = 0; acc = 0;
     score = 0; updateScore(); livesLeft = LIVES; buildLives();
     nearSpill = false; flashT = 0; shakeT = 0; spawnTimer = 0;
+    handlerClock = 0; handlerRelease = null;
     stage.classList.remove("danger"); currentX = W / 2;
-    nextLevel = randDrop(); spawnCurrent(); state = "playing"; runAvailable = true;
+    nextLevel = 4; spawnCurrent(); state = "playing"; runAvailable = true;
     hideDialogs(); $("hud").classList.remove("hidden");
     canvas.focus({ preventScroll: true });
-    announce("Glisse. Relâche. Bon voyage.");
+    announce("Glisse pour viser. Relâche pour ouvrir la main.");
     tone(330, .12, "triangle", .07); tone(495, .18, "triangle", .06, null, .09);
   }
   function resumeGame() {
@@ -1422,6 +1545,7 @@
   function frame(t) {
     const dt = Math.min(50, t - last) / 1000; last = t;
     if (state === "playing") {
+      handlerClock += dt;
       const direction = Number(heldKeys.has("ArrowRight")) - Number(heldKeys.has("ArrowLeft"));
       if (direction && curLevel) {
         const half = bagW(curLevel) / 2;
