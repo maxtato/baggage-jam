@@ -39,7 +39,7 @@ vm.createContext(context);
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
 scripts.forEach((m,i)=>{
   let code=m[1];
-  if(i===scripts.length-1) code=code.replace('  /* ---------- init ---------- */', '  window.test = {scene,resize,getFloor:()=>FLOOR_Y,cartBodies,handlerCurve,handlerPose,heldBagLayout,getClock:()=>handlerClock,setNext:level=>{nextLevel=level;},setHeld:(level,x)=>{curLevel=level;currentX=x;handlerArrival=handlerClock-1;},bagW,bagH,topSurfaceY,bagRenderMatrix,startGame,pauseGame,resumeGame,homeMenu,openHelp,closeHelp,makeBag,processMerges,loseLife,frame,drop,Engine,engine,allBags,impactFX,bagPose,bagMatrix,stackShadows,drawBag,isFalling,updateFX,bakeImage,IMG,BAKED,BAG_SHADOWS,Body,get:()=>({state,score,best,livesLeft,curLevel,mergeCount,maxCombo,highestLevel,runAvailable,isDown,parts:parts.length,rings:rings.length,impacts:impacts.map(x=>({...x})),shakeT}), setPrefs:(v)=>{preferences={...preferences,...v};syncPreferences();}, queue:(a,b)=>mergeQueue.push([a,b])};\n  /* ---------- init ---------- */');
+  if(i===scripts.length-1) code=code.replace('  /* ---------- init ---------- */', '  window.test = {scene,resize,getFloor:()=>FLOOR_Y,cartBodies,handlerPose,heldBagLayout,getClock:()=>handlerClock,setNext:level=>{nextLevel=level;},setHeld:(level,x)=>{curLevel=level;currentX=x;handlerArrival=handlerClock-1;},bagW,bagH,topSurfaceY,bagRenderMatrix,startGame,pauseGame,resumeGame,homeMenu,openHelp,closeHelp,makeBag,processMerges,loseLife,frame,drop,Engine,engine,allBags,impactFX,bagPose,bagMatrix,stackShadows,drawBag,isFalling,updateFX,bakeImage,IMG,BAKED,BAG_SHADOWS,Body,get:()=>({state,score,best,livesLeft,curLevel,mergeCount,maxCombo,highestLevel,runAvailable,isDown,parts:parts.length,rings:rings.length,impacts:impacts.map(x=>({...x})),shakeT}), setPrefs:(v)=>{preferences={...preferences,...v};syncPreferences();}, queue:(a,b)=>mergeQueue.push([a,b])};\n  /* ---------- init ---------- */');
   vm.runInContext(code,context,{filename:`inline-${i}.js`});
 });
 const t=context.test;
@@ -69,7 +69,6 @@ console.log('PASS: all ten bags remain attached to their grips and release witho
 
 // A full sweep unfolds a constant-length arm, without a jump at the center.
 t.setPrefs({motion:false});
-let shortestSleeve=Infinity,longestSleeve=0;
 for(let level=1;level<=10;level++){
  t.startGame();
  let previous=null;
@@ -78,15 +77,12 @@ for(let level=1;level<=10;level++){
   t.setHeld(level,x);const pose=t.handlerPose();
   assert.equal(pose.rootX,230,'shoulder never slides sideways');
   assert.equal(pose.rootY,130,'shoulder stays fixed near the top of the opening');
-  close(Math.hypot(pose.x-pose.rootX,pose.y-pose.rootY),178.6,'hand rotates around the shoulder on a fixed-radius arc');
+  const reach=Math.hypot(pose.x-pose.rootX,pose.y-pose.rootY);
+  assert.ok(reach>=177-1e-8&&reach<=178.6+1e-8,'the slight bend unfolds within the fixed arm length');
+  const signedBend=(pose.elbowX-pose.rootX)*(pose.y-pose.rootY)-(pose.elbowY-pose.rootY)*(pose.x-pose.rootX);
+  assert.ok(signedBend>0,'the elbow always bends on the new, opposite side');
   close(Math.hypot(pose.elbowX-pose.rootX,pose.elbowY-pose.rootY),99,'upper arm does not stretch');
   close(Math.hypot(pose.elbowX-pose.x,pose.elbowY-pose.y),80,'shorter forearm does not stretch');
-  let clothLength=0,clothPoint=t.handlerCurve(pose,0);
-  for(let part=1;part<=200;part++){
-   const next=t.handlerCurve(pose,part/200);
-   clothLength+=Math.hypot(next.x-clothPoint.x,next.y-clothPoint.y);clothPoint=next;
-  }
-  shortestSleeve=Math.min(shortestSleeve,clothLength);longestSleeve=Math.max(longestSleeve,clothLength);
   if(previous)assert.ok(Math.hypot(pose.elbowX-previous.elbowX,pose.elbowY-previous.elbowY)<12,'elbow does not flip when crossing the center');
   previous=pose;
   if(i>=220){
@@ -97,22 +93,20 @@ for(let level=1;level<=10;level++){
   if(i===200){
    assert.ok((pose.elbowY-pose.rootY)/(pose.y-pose.rootY)>.54,'elbow sits lower on the neutral arm');
    const dx=pose.x-pose.rootX,dy=pose.y-pose.rootY;
-   assert.ok(Math.abs((pose.elbowX-pose.rootX)*dy-(pose.elbowY-pose.rootY)*dx)/Math.hypot(dx,dy)<7,'the central elbow stays close to the shoulder-to-hand line');
+   const bend=((pose.elbowX-pose.rootX)*dy-(pose.elbowY-pose.rootY)*dx)/Math.hypot(dx,dy);
+   assert.ok(bend>10&&bend<15,'the central elbow bends gently to the opposite side');
   }
   if(level<=6&&i===400)close(pose.y,pose.rootY,'full right reach is horizontal from the shoulder');
   if(level<=6&&(i===0||i===400)){
    const slope=Math.abs((pose.y-pose.elbowY)/(pose.x-pose.elbowX));
    assert.ok(slope<Math.tan(Math.PI/6),'forearm is within 30 degrees of horizontal at both limits');
    assert.ok(pose.y>=124&&pose.y<140,'horizontal reach stays high inside the doorway');
-   for(let part=0;part<=20;part++){
-    assert.ok(t.handlerCurve(pose,part/20).y-18>=106,'the full sleeve stays below the top of the opening');
-   }
+   assert.ok(Math.min(pose.rootY,pose.elbowY,pose.y)-18>=106,'the sleeve stays below the top of the opening');
   }
  }
 }
-assert.ok(longestSleeve-shortestSleeve<1,'visible cloth length stays constant within one pixel across the entire sweep');
 t.setPrefs({motion:true});
-console.log('PASS: shorter, nearly straight arm rotates around one high fixed shoulder, with constant bone and sleeve lengths.');
+console.log('PASS: elbow bends gently in the opposite direction, with fixed shoulder and bone lengths.');
 
 // Retraction must not turn the elbow beyond the wrist after the hand opens.
 for(const x of [30,230,430]){
@@ -126,6 +120,7 @@ for(const x of [30,230,430]){
    const dx=pose.x-pose.rootX,dy=pose.y-pose.rootY;
    const along=((pose.elbowX-pose.rootX)*dx+(pose.elbowY-pose.rootY)*dy)/(dx*dx+dy*dy);
    assert.ok(along>0&&along<1,'elbow never folds beyond the wrist during release');
+   assert.ok((pose.elbowX-pose.rootX)*dy-(pose.elbowY-pose.rootY)*dx>0,'release keeps the new elbow direction');
   }
   step();
  }

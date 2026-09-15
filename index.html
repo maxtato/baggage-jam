@@ -13,6 +13,7 @@
 <link rel="icon" type="image/png" href="/apple-icon.png" />
 <title>Baggage Jam</title>
 <link rel="preload" as="image" href="/assets/handler/hand-drawn-poses.png" />
+<link rel="preload" as="image" href="/assets/handler/sleeve-tailored-v1.webp" />
 <link rel="preload" as="image" href="/assets/scenes/raised-cargo-hold.webp" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -975,27 +976,21 @@
     [.525,.046],[.54,.045],[.54,.042],[.575,.044],[.51,.042]];
   const HAND_ART = new Image();
   HAND_ART.src = "/assets/handler/hand-drawn-poses.png";
+  const SLEEVE_ART = new Image();
+  SLEEVE_ART.src = "/assets/handler/sleeve-tailored-v1.webp";
   const HAND_FRAME = 887, HAND_SCALE = 96 / HAND_FRAME;
   const HAND_ANCHOR = { x: 325, y: 706 };
   const CUFF_CUT = { x: 455, y: 505 };
-  const ARM_AXIS = { x: .6, y: -.8 }, ARM_LENGTH = 570;
+  const ARM_AXIS = { x: .6, y: -.8 };
   const SHOULDER_X = W / 2, SHOULDER_Y = 130;
   const UPPER_ARM = 99, FOREARM = 80, ARM_REACH = UPPER_ARM + FOREARM - .4;
-  // Measured cross-sections of the sleeve artwork: position, width and center.
-  // Recenter its texture on a straight, roomy jacket sleeve instead of widening
-  // its existing bulge. The cuff still meets the unscaled hand exactly.
-  const SLEEVE_PROFILE = [[0,167,13.5],[.05,202,16],[.1,212,18],[.2,217,25.5],
-    [.3,215,30.5],[.4,215,35.5],[.5,207,37.5],[.6,199,36.5],[.7,177,34.5],[1,177,34.5]];
-  function sleeveSection(t) {
-    let i = 1;
-    while (i < SLEEVE_PROFILE.length - 1 && t > SLEEVE_PROFILE[i][0]) i++;
-    const a = SLEEVE_PROFILE[i - 1], b = SLEEVE_PROFILE[i];
-    const mix = (t - a[0]) / (b[0] - a[0]);
-    const sourceWidth = a[1] + (b[1] - a[1]) * mix, center = a[2] + (b[2] - a[2]) * mix;
-    const cuff = Math.min(1, t / .09), ease = cuff * cuff * (3 - 2 * cuff);
-    const width = (167 * HAND_SCALE + (31 - 167 * HAND_SCALE) * ease) / sourceWidth;
-    return { width, offset: 13.5 * HAND_SCALE - center * width };
-  }
+  // The sleeve is drawn at its final aspect ratio. Both rigid pieces use one
+  // uniform scale, preserving the proportions of every fold and reflective band.
+  const SLEEVE_X = 516, SLEEVE_TOP = 64, SLEEVE_WRIST = 1414;
+  const CUFF_LENGTH = Math.hypot(CUFF_CUT.x - HAND_ANCHOR.x, CUFF_CUT.y - HAND_ANCHOR.y) * HAND_SCALE;
+  const SLEEVE_SCALE = (UPPER_ARM + FOREARM - CUFF_LENGTH) / (SLEEVE_WRIST - SLEEVE_TOP);
+  const SLEEVE_ELBOW = SLEEVE_TOP + UPPER_ARM / SLEEVE_SCALE;
+  const SLEEVE_OVERLAP = 3 / SLEEVE_SCALE;
   const ARM_SURFACE = document.createElement("canvas");
   ARM_SURFACE.width = W * 2; ARM_SURFACE.height = BASE_H * 2;
   const armCtx = ARM_SURFACE.getContext("2d");
@@ -1011,9 +1006,10 @@
     x = Math.max(limits.min, Math.min(limits.max, x));
     const entry = preferences.motion ? Math.max(0, 1 - (handlerClock - handlerArrival) / .18) : 0;
     const gripX = x + (u - .5) * bagW(level), dx = gripX - SHOULDER_X;
-    // A compact, almost straight arm swings around one shoulder. The endpoint
-    // follows a fixed-radius arc instead of dragging the shoulder sideways.
-    const down = Math.abs(dx) >= ARM_REACH - .000001 ? 0 : Math.sqrt(Math.max(0, ARM_REACH * ARM_REACH - dx * dx));
+    // A slight bend at the center unfolds toward either side. The shoulder and
+    // both bone lengths stay fixed while the elbow does the work.
+    const radius = ARM_REACH - 1.6 * Math.max(0, 1 - (dx / ARM_REACH) ** 2);
+    const down = Math.abs(dx) >= ARM_REACH - .000001 ? 0 : Math.sqrt(Math.max(0, radius * radius - dx * dx));
     const gripY = SHOULDER_Y + down;
     return { x, y: gripY + (.5 - v) * bagH(level),
       gripX, gripY, rootX:SHOULDER_X, alpha: 1 - entry * .65 };
@@ -1028,8 +1024,8 @@
     const ux = dx / distance, uy = dy / distance;
     const along = (UPPER_ARM * UPPER_ARM - FOREARM * FOREARM + d * d) / (2 * d);
     const height = Math.sqrt(Math.max(0, UPPER_ARM * UPPER_ARM - along * along));
-    const elbowX = pose.rootX + ux * along - uy * height;
-    const elbowY = pose.rootY + uy * along + ux * height;
+    const elbowX = pose.rootX + ux * along + uy * height;
+    const elbowY = pose.rootY + uy * along - ux * height;
     const angle = Math.atan2(elbowY - pose.y, elbowX - pose.x)
       - Math.atan2(CUFF_CUT.y - HAND_ANCHOR.y, CUFF_CUT.x - HAND_ANCHOR.x);
     return { ...pose, elbowX, elbowY, angle };
@@ -1052,32 +1048,6 @@
       y: handlerRelease.rootY + (handlerRelease.y - handlerRelease.rootY) * fold,
       alpha: 1 - retreat });
   }
-  function handlerCurve(pose, t) {
-    const ca = Math.cos(pose.angle), sa = Math.sin(pose.angle);
-    const cuffX = (CUFF_CUT.x - HAND_ANCHOR.x) * HAND_SCALE;
-    const cuffY = (CUFF_CUT.y - HAND_ANCHOR.y) * HAND_SCALE;
-    const start = { x: pose.x + cuffX*ca - cuffY*sa, y: pose.y + cuffX*sa + cuffY*ca };
-    const elbow = { x: pose.elbowX, y: pose.elbowY }, end = { x: pose.rootX, y: pose.rootY };
-    const fore = Math.hypot(elbow.x - start.x, elbow.y - start.y);
-    const upper = Math.hypot(end.x - elbow.x, end.y - elbow.y);
-    const round = Math.min(10, fore * .4, upper * .4);
-    const before = { x: elbow.x + (start.x - elbow.x) * round / fore,
-      y: elbow.y + (start.y - elbow.y) * round / fore };
-    const after = { x: elbow.x + (end.x - elbow.x) * round / upper,
-      y: elbow.y + (end.y - elbow.y) * round / upper };
-    const travel = t * (fore + upper);
-    if (travel < fore - round) {
-      const a = travel / (fore - round);
-      return { x: start.x + (before.x - start.x) * a, y: start.y + (before.y - start.y) * a };
-    }
-    if (travel < fore + round) {
-      const a = (travel - fore + round) / (2 * round), s = 1 - a;
-      return { x: s*s*before.x + 2*s*a*elbow.x + a*a*after.x,
-        y: s*s*before.y + 2*s*a*elbow.y + a*a*after.y };
-    }
-    const a = (travel - fore - round) / (upper - round);
-    return { x: after.x + (end.x - after.x) * a, y: after.y + (end.y - after.y) * a };
-  }
   function clipArmSlice(from, to, halfWidth, paint = ctx) {
     const ux = ARM_AXIS.x, uy = ARM_AXIS.y, px = -uy, py = ux;
     paint.beginPath();
@@ -1087,32 +1057,28 @@
     paint.lineTo(CUFF_CUT.x + ux*from + px*halfWidth, CUFF_CUT.y + uy*from + py*halfWidth);
     paint.closePath(); paint.clip();
   }
+  function drawSleevePiece(anchorY, fromY, toY, x, y, angle) {
+    armCtx.save(); armCtx.translate(x, y); armCtx.rotate(angle - Math.PI / 2);
+    armCtx.translate(13.5 * HAND_SCALE, 0);
+    armCtx.scale(SLEEVE_SCALE, SLEEVE_SCALE);
+    armCtx.translate(-SLEEVE_X, -anchorY);
+    armCtx.beginPath(); armCtx.rect(352, fromY, 328, toY - fromY); armCtx.clip();
+    armCtx.drawImage(SLEEVE_ART, 0, 0); armCtx.restore();
+  }
   function drawHandlerSleeve(pose) {
-    if (!pose || !HAND_ART.complete || !HAND_ART.naturalWidth) return;
-    const ux = ARM_AXIS.x, uy = ARM_AXIS.y, px = -uy, py = ux;
-    // Texture strips bend the cloth while preserving hand size and keeping the
-    // shoulder inside the cargo hold even when the player aims at either edge.
+    if (!pose || !SLEEVE_ART.complete || !SLEEVE_ART.naturalWidth) return;
+    const upperAngle = Math.atan2(pose.elbowY - pose.rootY, pose.elbowX - pose.rootX);
+    const foreAngle = Math.atan2(pose.y - pose.elbowY, pose.x - pose.elbowX);
+    const bend = Math.atan2(Math.sin(foreAngle - upperAngle), Math.cos(foreAngle - upperAngle));
     armCtx.setTransform(2, 0, 0, 2, 0, 0); armCtx.clearRect(0, 0, W, BASE_H);
-    const slices = 40;
-    for (let i = 0; i < slices; i++) {
-      const from = i / slices, to = (i + 1) / slices;
-      const a = handlerCurve(pose, from), b = handlerCurve(pose, to);
-      const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
-      if (length < .001) continue;
-      const vx = dx / length, vy = dy / length, stretch = length / (ARM_LENGTH / slices);
-      const { width, offset } = sleeveSection(from);
-      const xx = vx*ux*stretch - vy*px*width, xy = vx*uy*stretch - vy*py*width;
-      const yx = vy*ux*stretch + vx*px*width, yy = vy*uy*stretch + vx*py*width;
-      const sx = CUFF_CUT.x + ux*from*ARM_LENGTH, sy = CUFF_CUT.y + uy*from*ARM_LENGTH;
-      armCtx.save();
-      armCtx.transform(xx, yx, xy, yy, a.x - vy*offset - xx*sx - xy*sy,
-        a.y + vx*offset - yx*sx - yy*sy);
-      clipArmSlice(from*ARM_LENGTH - 3, to*ARM_LENGTH + 3, 230, armCtx);
-      armCtx.drawImage(HAND_ART, 0, 0, HAND_FRAME, HAND_FRAME, 0, 0, HAND_FRAME, HAND_FRAME);
-      armCtx.restore();
-    }
-    // Fade the whole sleeve after compositing, so overlapping texture strips
-    // cannot create bright seams in the dark part of the arm.
+    // A small cloth patch covers the inside of the joint as the two unwarped
+    // pieces rotate. Their common scale never depends on the aiming direction.
+    armCtx.save(); armCtx.beginPath(); armCtx.arc(pose.elbowX, pose.elbowY, 16, 0, Math.PI * 2); armCtx.clip();
+    drawSleevePiece(SLEEVE_ELBOW, SLEEVE_ELBOW - 16 / SLEEVE_SCALE, SLEEVE_ELBOW + 16 / SLEEVE_SCALE,
+      pose.elbowX, pose.elbowY, upperAngle + bend / 2); armCtx.restore();
+    drawSleevePiece(SLEEVE_TOP, SLEEVE_TOP, SLEEVE_ELBOW + SLEEVE_OVERLAP, pose.rootX, pose.rootY, upperAngle);
+    drawSleevePiece(SLEEVE_ELBOW, SLEEVE_ELBOW - SLEEVE_OVERLAP, SLEEVE_WRIST + 2, pose.elbowX, pose.elbowY, foreAngle);
+    // Apply one shadow to the assembled sleeve so the seam stays invisible.
     armCtx.save(); armCtx.globalCompositeOperation = "destination-in";
     // Darkness is anchored at the shoulder too, so the visible attachment
     // remains in the same place as the arm rotates.
