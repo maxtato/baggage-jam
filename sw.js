@@ -1,4 +1,4 @@
-const CACHE = "baggage-jam-v12-hd-collection";
+const CACHE = "baggage-jam-v13-green-bags";
 const SHELL = ["/", "/index.html", "/apple-icon.png", "/manifest.json", "/assets/bags/bag-01-hd.webp", "/assets/bags/bag-02-hd.webp", "/assets/bags/bag-03-hd.webp"];
 
 self.addEventListener("install", (e) => {
