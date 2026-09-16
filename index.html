@@ -14,7 +14,7 @@
 <title>Baggage Jam</title>
 <link rel="preload" as="image" href="/assets/handler/hand-drawn-poses.png" />
 <link rel="preload" as="image" href="/assets/handler/sleeve-tailored-v1.webp" />
-<link rel="preload" as="image" href="/assets/handler/shadow-body-arcade-v1.webp" />
+<link rel="preload" as="image" href="/assets/handler/body-left-facing-v3.webp" />
 <link rel="preload" as="image" href="/assets/scenes/raised-cargo-hold.webp" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -986,7 +986,7 @@
   const SLEEVE_ART = new Image();
   SLEEVE_ART.src = "/assets/handler/sleeve-tailored-v1.webp";
   const BODY_ART = new Image();
-  BODY_ART.src = "/assets/handler/shadow-body-arcade-v1.webp";
+  BODY_ART.src = "/assets/handler/body-left-facing-v3.webp";
   const BODY_SURFACE = document.createElement("canvas");
   BODY_SURFACE.width = 512; BODY_SURFACE.height = 768;
   let bodyBaked = false;
@@ -1087,12 +1087,20 @@
   }
   function drawHandlerBody(pose) {
     if (!BODY_ART.complete || !BODY_ART.naturalWidth) return;
+    const shoulderX = 780, shoulderY = 455, scale = .17;
     if (!bodyBaked) {
       const paint = BODY_SURFACE.getContext("2d");
       paint.drawImage(BODY_ART, 0, 0, 512, 768);
-      // Keep the solid cartoon body dim but readable against the black hold.
+      // Keep the cartoon jacket readable while joining the near shoulder
+      // to the shaded animated sleeve in the foreground.
       paint.globalCompositeOperation = "source-atop";
-      paint.fillStyle = "rgba(1,4,7,.55)"; paint.fillRect(0, 0, 512, 768);
+      paint.fillStyle = "rgba(1,4,7,.70)"; paint.fillRect(0, 0, 512, 768);
+      const attachment = paint.createRadialGradient(shoulderX / 2, shoulderY / 2, 0,
+        shoulderX / 2, shoulderY / 2, 130);
+      attachment.addColorStop(0, "rgba(1,4,7,.96)");
+      attachment.addColorStop(.60, "rgba(1,4,7,.96)");
+      attachment.addColorStop(1, "rgba(1,4,7,0)");
+      paint.fillStyle = attachment; paint.fillRect(0, 0, 512, 768);
       paint.globalCompositeOperation = "destination-in";
       const fade = paint.createLinearGradient(0, 0, 0, 768);
       fade.addColorStop(0, "rgba(0,0,0,1)"); fade.addColorStop(.76, "rgba(0,0,0,1)");
@@ -1102,11 +1110,13 @@
     }
     const rootX = pose ? pose.rootX : handlerRelease ? handlerRelease.rootX
       : heldBagLayout(curLevel || nextLevel).rootX;
-    // The body remains in the hold while the hand opens and fetches another bag.
-    // Its right shoulder follows the same joint as the animated sleeve.
-    const scale = .17, shoulderX = 740, shoulderY = 400;
+    const reach = Math.max(-1, Math.min(1, (rootX - SHOULDER_X) / SHOULDER_TRAVEL));
+    // The body always faces left. The same near shoulder is the common pivot:
+    // a small lean accompanies the reach, without swapping arms or stretching.
+    const lean = reach < 0 ? reach * .20 : reach * .045;
     ctx.save(); ctx.beginPath(); ctx.roundRect(113, 106, 219, 248, 16); ctx.clip();
-    ctx.drawImage(BODY_SURFACE, rootX - shoulderX * scale, SHOULDER_Y - shoulderY * scale,
+    ctx.translate(rootX, SHOULDER_Y); ctx.rotate(lean);
+    ctx.drawImage(BODY_SURFACE, -shoulderX * scale, -shoulderY * scale,
       1024 * scale, 1536 * scale); ctx.restore();
   }
   function drawHandlerSleeve(pose) {
@@ -1135,8 +1145,8 @@
     armCtx.beginPath(); armCtx.roundRect(113, 106, 219, 248, 16); armCtx.clip();
     // The soft attachment follows the character inside the dark doorway.
     const shade = armCtx.createRadialGradient(pose.rootX, pose.rootY, 0, pose.rootX, pose.rootY, 48);
-    shade.addColorStop(0, "rgba(0,0,0,0)"); shade.addColorStop(.25, "rgba(0,0,0,.08)");
-    shade.addColorStop(.6, "rgba(0,0,0,.5)"); shade.addColorStop(1, "rgba(0,0,0,1)");
+    shade.addColorStop(0, "rgba(0,0,0,.90)"); shade.addColorStop(.25, "rgba(0,0,0,.92)");
+    shade.addColorStop(.6, "rgba(0,0,0,.96)"); shade.addColorStop(1, "rgba(0,0,0,1)");
     armCtx.fillStyle = shade; armCtx.fillRect(0, 0, W, BASE_H); armCtx.restore();
     ctx.save(); ctx.globalAlpha = pose.alpha;
     ctx.drawImage(ARM_SURFACE, 0, 0, ARM_SURFACE.width, ARM_SURFACE.height, 0, 0, W, BASE_H);
