@@ -1011,7 +1011,12 @@
     // This preserves the drop range with a shorter, constant-length arm.
     const rootX = SHOULDER_X + (gripX - SHOULDER_X) / AIM_REACH * SHOULDER_TRAVEL;
     const dx = gripX - rootX;
-    const radius = ARM_REACH - 1.6 * Math.max(0, 1 - (dx / ARM_REACH) ** 2);
+    const baseRadius = ARM_REACH - 1.6 * Math.max(0, 1 - (dx / ARM_REACH) ** 2);
+    // A small left-side elbow gesture peaks before halfway, then unfolds fully.
+    const left = Math.max(0, Math.min(1, (SHOULDER_X - gripX) / AIM_REACH));
+    const unfold = left * left * (3 - 2 * left);
+    const flex = Math.sin(Math.PI * Math.min(1, left / .7)) ** 2;
+    const radius = baseRadius + (UPPER_ARM + FOREARM - baseRadius) * unfold - 2.6 * flex;
     const down = Math.abs(dx) >= ARM_REACH - .000001 ? 0 : Math.sqrt(Math.max(0, radius * radius - dx * dx));
     const gripY = SHOULDER_Y + down;
     return { x, y: gripY + (.5 - v) * bagH(level),
@@ -1089,6 +1094,9 @@
     armCtx.fillStyle = upperShade; armCtx.fillRect(0, 0, W, BASE_H); armCtx.restore();
     // Fade the assembled sleeve into the doorway without exposing joint seams.
     armCtx.save(); armCtx.globalCompositeOperation = "destination-in";
+    // Transparency belongs inside the opening. Outside it, the dark sleeve
+    // stays opaque so the white fuselage cannot show through the shoulder.
+    armCtx.beginPath(); armCtx.roundRect(113, 106, 219, 248, 16); armCtx.clip();
     // The soft attachment follows the character inside the dark doorway.
     const shade = armCtx.createRadialGradient(pose.rootX, pose.rootY, 0, pose.rootX, pose.rootY, 48);
     shade.addColorStop(0, "rgba(0,0,0,0)"); shade.addColorStop(.25, "rgba(0,0,0,.08)");
@@ -1152,7 +1160,7 @@
         const ox = dy * halfW * side * 1.8 - dx * extent;
         const oy = -dx * halfW * side * 1.8 - dy * extent;
         ctx.globalAlpha = .36 * fade;
-        ctx.lineWidth = 1 + fade * 2; ctx.strokeStyle = BAG_COLORS[b.lvl - 1];
+        ctx.lineWidth = .5 + fade; ctx.strokeStyle = BAG_COLORS[b.lvl - 1];
         ctx.beginPath(); ctx.moveTo(trail[i - 1].x + ox, trail[i - 1].y + oy); ctx.lineTo(trail[i].x + ox, trail[i].y + oy); ctx.stroke();
       }
     }
@@ -1164,9 +1172,9 @@
       const y = b.position.y - dx * side - dy * (extent + gap);
       ctx.globalAlpha = .64;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - dx * len, y - dy * len);
-      ctx.strokeStyle = "#202821"; ctx.lineWidth = i === 2 ? 4.5 : 3.5; ctx.stroke();
+      ctx.strokeStyle = "#202821"; ctx.lineWidth = i === 2 ? 2.2 : 1.7; ctx.stroke();
       ctx.globalAlpha = .94; ctx.strokeStyle = i % 2 ? BAG_COLORS[b.lvl - 1] : "#fffaf0";
-      ctx.lineWidth = i === 2 ? 2.5 : 1.5; ctx.stroke();
+      ctx.lineWidth = i === 2 ? 1.2 : .7; ctx.stroke();
     }
     ctx.restore();
   }

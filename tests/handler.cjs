@@ -78,9 +78,9 @@ for(let level=1;level<=10;level++){
   assert.ok(pose.rootX>=154-1e-8&&pose.rootX<=306+1e-8,'shoulder stays inside the dark opening');
   assert.equal(pose.rootY,130,'shoulder stays near the top of the opening');
   const reach=Math.hypot(pose.x-pose.rootX,pose.y-pose.rootY);
-  assert.ok(reach>=139-1e-8&&reach<=140.6+1e-8,'the shorter arm keeps a slight, natural bend');
+  assert.ok(reach>=136.4-1e-8&&reach<=141+1e-8,'the short arm gently bends then straightens without stretching');
   const signedBend=(pose.elbowX-pose.rootX)*(pose.y-pose.rootY)-(pose.elbowY-pose.rootY)*(pose.x-pose.rootX);
-  assert.ok(signedBend>0,'the elbow always bends on the new, opposite side');
+  assert.ok(signedBend>=-1e-8,'the elbow stays on its chosen side, including full extension');
   close(Math.hypot(pose.elbowX-pose.rootX,pose.elbowY-pose.rootY),78,'shorter upper arm does not stretch');
   close(Math.hypot(pose.elbowX-pose.x,pose.elbowY-pose.y),63,'shorter forearm does not stretch');
   if(previous){
@@ -111,6 +111,19 @@ for(let level=1;level<=10;level++){
 t.setPrefs({motion:true});
 console.log('PASS: shorter arm and hand, smooth shoulder travel inside the doorway, unchanged drop range and fixed bone lengths.');
 
+// The left gesture adds a subtle bend early in the sweep and ends with a straight arm.
+t.startGame();
+const elbowBends=[];
+for(const left of [0,.35,.7,1]){
+ t.setHeld(4,230-178.6*left+.03*t.bagW(4));
+ const p=t.handlerPose(),dx=p.x-p.rootX,dy=p.y-p.rootY;
+ elbowBends.push(((p.elbowX-p.rootX)*dy-(p.elbowY-p.rootY)*dx)/Math.hypot(dx,dy));
+}
+assert.ok(elbowBends[1]>elbowBends[0]+2&&elbowBends[1]<elbowBends[0]+6,'a small extra flex appears before halfway left');
+assert.ok(elbowBends[2]<elbowBends[0],'the elbow unfolds after the gesture');
+assert.ok(elbowBends[3]<1e-5,'the arm is fully straight at the far left');
+console.log('PASS: slight left elbow gesture relaxes into full extension at the edge.');
+
 // Retraction must not turn the elbow beyond the wrist after the hand opens.
 for(const x of [30,230,430]){
  t.startGame();t.setHeld(1,x);const heldShoulder=t.handlerPose().rootX;t.drop();
@@ -124,7 +137,7 @@ for(const x of [30,230,430]){
    const dx=pose.x-pose.rootX,dy=pose.y-pose.rootY;
    const along=((pose.elbowX-pose.rootX)*dx+(pose.elbowY-pose.rootY)*dy)/(dx*dx+dy*dy);
    assert.ok(along>0&&along<1,'elbow never folds beyond the wrist during release');
-   assert.ok((pose.elbowX-pose.rootX)*dy-(pose.elbowY-pose.rootY)*dx>0,'release keeps the new elbow direction');
+   assert.ok((pose.elbowX-pose.rootX)*dy-(pose.elbowY-pose.rootY)*dx>=-1e-8,'release keeps the new elbow direction');
   }
   step();
  }
