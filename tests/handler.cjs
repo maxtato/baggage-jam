@@ -228,3 +228,6 @@ assert.deepEqual(t.handlerPose(),still,'reduced motion keeps a steady hand');
 t.drop();assert.equal(t.allBags().length,1);assert.equal(t.handlerPose(),null);
 step(30);assert.ok(t.get().curLevel>0);assert.equal(t.handlerPose().alpha,1);
 console.log('PASS: reduced-motion play retains immediate drops and a steady grip.');
+
+// Reuse the actual game and deterministic clock for physical contact scenarios.
+module.exports = { game:t, step, context };

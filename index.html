@@ -332,7 +332,7 @@
 (function () {
   "use strict";
   const M = window.Matter;
-  const { Engine, Bodies, Composite, Body, Events } = M;
+  const { Engine, Bodies, Composite, Body, Events, Sleeping } = M;
 
   /* ---------- dimensions (calées sur le ratio de l'image de fond) ---------- */
   const W = 460, BASE_H = 819;
@@ -353,7 +353,7 @@
   const LEFT_X = 38;        // face intérieure barrière gauche
   const RIGHT_X = 422;      // face intérieure barrière droite
 
-  const STEP = 16.666;
+  const STEP = 1000 / 120;  // smaller contact steps reduce penetration into a packed stack
   const COOLDOWN = 0.45;
   const LIVES = 5;          // colis qu'on peut perdre
   const MAX_SPEED = 15;     // vitesse max (anti-tunneling sur grande chute)
@@ -488,7 +488,8 @@
   let mergeQueue = [];
 
   /* ---------- moteur physique ---------- */
-  const engine = Engine.create();
+  // Resting contacts can settle; a fresh impact wakes them through Matter.
+  const engine = Engine.create({ enableSleeping: true });
   engine.gravity.y = 2.4;
   engine.positionIterations = 12;
   engine.velocityIterations = 8;
@@ -606,8 +607,8 @@
     const SHRINK = 0.96;
     const v = (VERTS[level - 1] || []).map(([px, py]) => ({ x: px * scale * SHRINK, y: py * scale * SHRINK }));
     const opts = {
-      restitution: .16 - Math.min(level - 1, 9) * .007, friction: 0.52, frictionStatic: 0.64,
-      frictionAir: 0.005, density: 0.0014 * Math.pow(1.16, level - 1), slop: 0.04,
+      restitution: .16 - Math.min(level - 1, 9) * .007, friction: .62, frictionStatic: .9,
+      frictionAir: .005, density: .0014 * Math.pow(1.16, level - 1), slop: .04, sleepThreshold: 36,
     };
     let b;
     if (v.length >= 3) {
@@ -628,11 +629,15 @@
     return b;
   }
   const allBags = () => Composite.allBodies(world).filter((b) => b.lvl);
+  function wakeBagStack() {
+    // A removed or moved support must never leave a sleeping bag suspended.
+    for (const bag of allBags()) if (bag.isSleeping) Sleeping.set(bag, false);
+  }
 
   function settleGroundBags() {
     const bags = allBags();
     for (const b of bags) {
-      if (!b._landed || b.merging || b.bounds.max.y < FLOOR_Y - 2 || b.bounds.max.y > FLOOR_Y + 4) continue;
+      if (b.isSleeping || !b._landed || b.merging || b.bounds.max.y < FLOOR_Y - 2 || b.bounds.max.y > FLOOR_Y + 4) continue;
       if (Math.hypot(b.velocity.x, b.velocity.y) > 1.8 || Math.abs(b.angularVelocity) > .045) continue;
       const radius = Math.max(bagW(b.lvl), bagH(b.lvl)) * .51;
       if (b.position.x - radius < LEFT_X + 5 || b.position.x + radius > RIGHT_X - 5) continue;
@@ -798,6 +803,7 @@
   /* ---------- fusion ---------- */
   function processMerges(now) {
     if (!mergeQueue.length) return;
+    wakeBagStack();
     const q = mergeQueue; mergeQueue = [];
     for (const [a, b] of q) {
       if (a._dead || b._dead) continue;
@@ -841,7 +847,7 @@
       if (sp > MAX_SPEED) { const k = MAX_SPEED / sp; Body.setVelocity(b, { x: v.x * k, y: v.y * k }); }
       // tombé à côté du chariot ?
       if (!b._dead && (b.position.y > H + 55 || b.position.x < -90 || b.position.x > W + 90)) {
-        b._dead = true; Composite.remove(world, b); loseLife(b); continue;
+        b._dead = true; wakeBagStack(); Composite.remove(world, b); loseLife(b); continue;
       }
       // au-dessus de la barrière dans le chariot -> alerte débordement
       const halfH = bagH(b.lvl) / 2;
@@ -1621,6 +1627,7 @@
       y:header - SCENE_IMAGE_TOP * scale, gap, header });
     H = BASE_H + gap; FLOOR_Y = 748 + gap; BARRIER_TOP_Y = FLOOR_Y - BARRIER_H;
     if (Math.abs(floorShift) > .001) {
+      wakeBagStack();
       for (const body of cartBodies) Body.translate(body, { x:0, y:floorShift });
       for (const bag of allBags()) {
         const progress = bag._landed ? 1 : Math.max(0, Math.min(1, (bag.position.y - SCENE_SPLIT_Y) / (oldFloor - SCENE_SPLIT_Y)));
@@ -1666,7 +1673,7 @@
         currentX = Math.max(limits.min, Math.min(limits.max, currentX + direction * dt * 290));
       }
       acc += dt * 1000; let steps = 0;
-      while (acc >= STEP && steps < 5) { settleGroundBags(); Engine.update(engine, STEP); acc -= STEP; steps++; }
+      while (acc >= STEP && steps < 8) { settleGroundBags(); Engine.update(engine, STEP); acc -= STEP; steps++; }
       processMerges(t); checkSpills(t);
       if (state === "playing" && curLevel === 0) { spawnTimer -= dt; if (spawnTimer <= 0) spawnCurrent(); }
       updateFX(dt, t); render(t);
