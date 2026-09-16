@@ -1090,9 +1090,9 @@
     if (!bodyBaked) {
       const paint = BODY_SURFACE.getContext("2d");
       paint.drawImage(BODY_ART, 0, 0, 512, 768);
-      // Keep an opaque, near-black human mass rather than a ghostly overlay.
+      // Keep the solid cartoon body dim but readable against the black hold.
       paint.globalCompositeOperation = "source-atop";
-      paint.fillStyle = "rgba(1,4,7,.89)"; paint.fillRect(0, 0, 512, 768);
+      paint.fillStyle = "rgba(1,4,7,.55)"; paint.fillRect(0, 0, 512, 768);
       paint.globalCompositeOperation = "destination-in";
       const fade = paint.createLinearGradient(0, 0, 0, 768);
       fade.addColorStop(0, "rgba(0,0,0,1)"); fade.addColorStop(.76, "rgba(0,0,0,1)");
