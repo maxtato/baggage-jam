@@ -1081,10 +1081,16 @@
       pose.elbowX, pose.elbowY, upperAngle + bend / 2); armCtx.restore();
     drawSleevePiece(SLEEVE_TOP, SLEEVE_TOP, SLEEVE_ELBOW + SLEEVE_OVERLAP, pose.rootX, pose.rootY, upperAngle);
     drawSleevePiece(SLEEVE_ELBOW, SLEEVE_ELBOW - SLEEVE_OVERLAP, SLEEVE_WRIST + 2, pose.elbowX, pose.elbowY, foreAngle);
-    // Apply one shadow to the assembled sleeve so the seam stays invisible.
+    // Darken the upper sleeve itself, keeping its folds visible in the hold.
+    armCtx.save(); armCtx.globalCompositeOperation = "source-atop";
+    const upperShade = armCtx.createRadialGradient(pose.rootX, pose.rootY, 0, pose.rootX, pose.rootY, 96);
+    upperShade.addColorStop(0, "rgba(1,4,7,.96)"); upperShade.addColorStop(.3, "rgba(1,4,7,.85)");
+    upperShade.addColorStop(.65, "rgba(1,4,7,.5)"); upperShade.addColorStop(1, "rgba(1,4,7,0)");
+    armCtx.fillStyle = upperShade; armCtx.fillRect(0, 0, W, BASE_H); armCtx.restore();
+    // Fade the assembled sleeve into the doorway without exposing joint seams.
     armCtx.save(); armCtx.globalCompositeOperation = "destination-in";
     // The soft attachment follows the character inside the dark doorway.
-    const shade = armCtx.createRadialGradient(pose.rootX, pose.rootY, 0, pose.rootX, pose.rootY, 38);
+    const shade = armCtx.createRadialGradient(pose.rootX, pose.rootY, 0, pose.rootX, pose.rootY, 48);
     shade.addColorStop(0, "rgba(0,0,0,0)"); shade.addColorStop(.25, "rgba(0,0,0,.08)");
     shade.addColorStop(.6, "rgba(0,0,0,.5)"); shade.addColorStop(1, "rgba(0,0,0,1)");
     armCtx.fillStyle = shade; armCtx.fillRect(0, 0, W, BASE_H); armCtx.restore();
