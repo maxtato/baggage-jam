@@ -14,6 +14,7 @@
 <title>Baggage Jam</title>
 <link rel="preload" as="image" href="/assets/handler/hand-drawn-poses.png" />
 <link rel="preload" as="image" href="/assets/handler/sleeve-tailored-v1.webp" />
+<link rel="preload" as="image" href="/assets/handler/shadow-body-arcade-v1.webp" />
 <link rel="preload" as="image" href="/assets/scenes/raised-cargo-hold.webp" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -984,6 +985,11 @@
   HAND_ART.src = "/assets/handler/hand-drawn-poses.png";
   const SLEEVE_ART = new Image();
   SLEEVE_ART.src = "/assets/handler/sleeve-tailored-v1.webp";
+  const BODY_ART = new Image();
+  BODY_ART.src = "/assets/handler/shadow-body-arcade-v1.webp";
+  const BODY_SURFACE = document.createElement("canvas");
+  BODY_SURFACE.width = 512; BODY_SURFACE.height = 768;
+  let bodyBaked = false;
   const HAND_FRAME = 887, HAND_SCALE = 78 / HAND_FRAME;
   const HAND_ANCHOR = { x: 325, y: 706 };
   const CUFF_CUT = { x: 455, y: 505 };
@@ -1078,6 +1084,30 @@
     armCtx.translate(-SLEEVE_X, -anchorY);
     armCtx.beginPath(); armCtx.rect(352, fromY, 328, toY - fromY); armCtx.clip();
     armCtx.drawImage(SLEEVE_ART, 0, 0); armCtx.restore();
+  }
+  function drawHandlerBody(pose) {
+    if (!BODY_ART.complete || !BODY_ART.naturalWidth) return;
+    if (!bodyBaked) {
+      const paint = BODY_SURFACE.getContext("2d");
+      paint.drawImage(BODY_ART, 0, 0, 512, 768);
+      // Keep an opaque, near-black human mass rather than a ghostly overlay.
+      paint.globalCompositeOperation = "source-atop";
+      paint.fillStyle = "rgba(1,4,7,.89)"; paint.fillRect(0, 0, 512, 768);
+      paint.globalCompositeOperation = "destination-in";
+      const fade = paint.createLinearGradient(0, 0, 0, 768);
+      fade.addColorStop(0, "rgba(0,0,0,1)"); fade.addColorStop(.76, "rgba(0,0,0,1)");
+      fade.addColorStop(1, "rgba(0,0,0,0)");
+      paint.fillStyle = fade; paint.fillRect(0, 0, 512, 768);
+      paint.globalCompositeOperation = "source-over"; bodyBaked = true;
+    }
+    const rootX = pose ? pose.rootX : handlerRelease ? handlerRelease.rootX
+      : heldBagLayout(curLevel || nextLevel).rootX;
+    // The body remains in the hold while the hand opens and fetches another bag.
+    // Its right shoulder follows the same joint as the animated sleeve.
+    const scale = .17, shoulderX = 740, shoulderY = 400;
+    ctx.save(); ctx.beginPath(); ctx.roundRect(113, 106, 219, 248, 16); ctx.clip();
+    ctx.drawImage(BODY_SURFACE, rootX - shoulderX * scale, SHOULDER_Y - shoulderY * scale,
+      1024 * scale, 1536 * scale); ctx.restore();
   }
   function drawHandlerSleeve(pose) {
     if (!pose || !SLEEVE_ART.complete || !SLEEVE_ART.naturalWidth) return;
@@ -1296,6 +1326,7 @@
     ctx.restore();
     drawHoldShade();
     const handler = handlerPose();
+    drawHandlerBody(handler);
     drawHandlerSleeve(handler);
     drawAim(now); drawImpacts();
     for (const b of bags) drawMotionTrail(b, now);
