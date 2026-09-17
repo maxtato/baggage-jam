@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="/assets/ui/baggage-jam-icon-v2.png" />
 <link rel="icon" type="image/png" href="/assets/ui/baggage-jam-icon-v2.png" />
 <title>Baggage Jam</title>
-<link rel="preload" as="image" href="/assets/handler/hand-drawn-poses.png" />
-<link rel="preload" as="image" href="/assets/handler/sleeve-tailored-v1.webp" />
-<link rel="preload" as="image" href="/assets/handler/body-left-facing-v3.webp" />
+<link rel="preload" as="image" href="/assets/handler/hands-cartoon-v2.webp" />
+<link rel="preload" as="image" href="/assets/handler/sleeve-cartoon-v2.webp" />
+<link rel="preload" as="image" href="/assets/handler/body-cartoon-v4.webp" />
 <link rel="preload" as="image" href="/assets/scenes/raised-cargo-hold.webp" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -1037,12 +1037,12 @@
   const HAND_GRIPS = [[.56,.055],[.625,.058],[.49,.057],[.47,.08],[.49,.052],
     [.525,.046],[.54,.045],[.54,.042],[.575,.044],[.51,.042]];
   const HAND_ART = new Image();
-  HAND_ART.src = "/assets/handler/hand-drawn-poses.png";
+  HAND_ART.src = "/assets/handler/hands-cartoon-v2.webp";
   const SLEEVE_ART = new Image();
-  SLEEVE_ART.src = "/assets/handler/sleeve-tailored-v1.webp";
+  SLEEVE_ART.src = "/assets/handler/sleeve-cartoon-v2.webp";
   const BODY_ART = new Image();
-  BODY_ART.src = "/assets/handler/body-left-facing-v3.webp";
-  const HANDLER_SHADOW = .885;
+  BODY_ART.src = "/assets/handler/body-cartoon-v4.webp";
+  const HANDLER_SHADOW = .86;
   const BODY_SURFACE = document.createElement("canvas");
   BODY_SURFACE.width = 512; BODY_SURFACE.height = 768;
   let bodyBaked = false;
@@ -1167,15 +1167,15 @@
     if (handlerWalk.amount < .005) handlerWalk.amount = 0;
   }
   function drawHandlerLeg(near, stride, amount) {
-    const swing = near ? -stride : stride, hipX = near ? 738 : 406, hipY = 1038;
+    const swing = near ? -stride : stride, hipX = near ? 805 : 445, hipY = 1200;
     const lift = Math.max(0, swing) * 12;
     ctx.save(); ctx.translate(hipX, hipY - lift); ctx.rotate(swing * .15);
     ctx.translate(-hipX, -hipY);
-    // Separate the original trouser legs at the crotch. The pelvis is drawn
+    // Follow the cartoon sprite's hips and crotch. The pelvis is drawn
     // over both moving pieces so the hips stay attached throughout the stride.
     ctx.beginPath();
-    ctx.moveTo(near ? 1024 : 0, 1010); ctx.lineTo(568, 1010);
-    ctx.lineTo(568, 1118); ctx.lineTo(548, 1240); ctx.lineTo(535, 1536);
+    ctx.moveTo(near ? 1024 : 0, 1170); ctx.lineTo(632, 1170);
+    ctx.lineTo(632, 1300); ctx.lineTo(620, 1400); ctx.lineTo(600, 1536);
     ctx.lineTo(near ? 1024 : 0, 1536); ctx.closePath(); ctx.clip();
     ctx.globalAlpha *= near ? 1 : 1 - amount * .10;
     ctx.drawImage(BODY_SURFACE, 0, 0, 1024, 1536); ctx.restore();
@@ -1227,7 +1227,7 @@
     ctx.scale(scale, scale); ctx.translate(-shoulderX, -shoulderY);
     if (amount > 0) {
       drawHandlerLeg(false, stride, amount); drawHandlerLeg(true, stride, amount);
-      ctx.drawImage(BODY_SURFACE, 0, 0, 512, 558, 0, 0, 1024, 1116);
+      ctx.drawImage(BODY_SURFACE, 0, 0, 512, 630, 0, 0, 1024, 1260);
     } else {
       ctx.drawImage(BODY_SURFACE, 0, 0, 1024, 1536);
     }
@@ -1246,6 +1246,14 @@
       pose.elbowX, pose.elbowY, upperAngle + bend / 2); armCtx.restore();
     drawSleevePiece(SLEEVE_TOP, SLEEVE_TOP, SLEEVE_ELBOW + SLEEVE_OVERLAP, pose.rootX, pose.rootY, upperAngle);
     drawSleevePiece(SLEEVE_ELBOW, SLEEVE_ELBOW - SLEEVE_OVERLAP, SLEEVE_WRIST + 2, pose.elbowX, pose.elbowY, foreAngle);
+    // A rounded sleeve cap overlaps the torso around the very same shoulder
+    // pivot as the upper arm. It turns with that bone, never stretches, and
+    // covers the old point-like attachment at the top of the sleeve.
+    armCtx.save();
+    armCtx.beginPath(); armCtx.arc(pose.rootX, pose.rootY, 15 * HANDLER_WIDTH, 0, Math.PI * 2); armCtx.clip();
+    drawSleevePiece(SLEEVE_TOP + 180, SLEEVE_TOP, SLEEVE_TOP + 380,
+      pose.rootX, pose.rootY, upperAngle);
+    armCtx.restore();
     // Match the body at the shoulder, then emerge gradually from the hold's shade.
     armCtx.save(); armCtx.globalCompositeOperation = "source-atop";
     const upperShade = armCtx.createRadialGradient(pose.rootX, pose.rootY, 0, pose.rootX, pose.rootY, 100);
