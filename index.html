@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="/assets/ui/baggage-jam-icon-v2.png" />
 <link rel="icon" type="image/png" href="/assets/ui/baggage-jam-icon-v2.png" />
 <title>Baggage Jam</title>
-<link rel="preload" as="image" href="/assets/handler/hands-cartoon-v2.webp" />
-<link rel="preload" as="image" href="/assets/handler/sleeve-cartoon-v2.webp" />
-<link rel="preload" as="image" href="/assets/handler/body-cartoon-v4.webp" />
+<link rel="preload" as="image" href="/assets/handler/hands-retro-v1.webp" />
+<link rel="preload" as="image" href="/assets/handler/sleeve-retro-v1.webp" />
+<link rel="preload" as="image" href="/assets/handler/body-retro-v1.webp" />
 <link rel="preload" as="image" href="/assets/scenes/raised-cargo-hold.webp" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -1037,14 +1037,19 @@
   const HAND_GRIPS = [[.56,.055],[.625,.058],[.49,.057],[.47,.08],[.49,.052],
     [.525,.046],[.54,.045],[.54,.042],[.575,.044],[.51,.042]];
   const HAND_ART = new Image();
-  HAND_ART.src = "/assets/handler/hands-cartoon-v2.webp";
+  HAND_ART.src = "/assets/handler/hands-retro-v1.webp";
   const SLEEVE_ART = new Image();
-  SLEEVE_ART.src = "/assets/handler/sleeve-cartoon-v2.webp";
+  SLEEVE_ART.src = "/assets/handler/sleeve-retro-v1.webp";
   const BODY_ART = new Image();
-  BODY_ART.src = "/assets/handler/body-cartoon-v4.webp";
+  BODY_ART.src = "/assets/handler/body-retro-v1.webp";
   const HANDLER_SHADOW = .86;
   const BODY_SURFACE = document.createElement("canvas");
-  BODY_SURFACE.width = 512; BODY_SURFACE.height = 768;
+  // The approved character sheet is a sprite atlas. Only the central body
+  // silhouette is sampled; both animated arms come from transparent sprites.
+  BODY_SURFACE.width = 1536; BODY_SURFACE.height = 1024;
+  const FREE_ARM_SURFACE = document.createElement("canvas");
+  FREE_ARM_SURFACE.width = 1536; FREE_ARM_SURFACE.height = 1024;
+  const BODY_SCALE = .34, FREE_SHOULDER = { x: 289, y: 351 };
   let bodyBaked = false;
   const HAND_FRAME = 887, HAND_SCALE = 78 / HAND_FRAME;
   const HAND_ANCHOR = { x: 325, y: 706 };
@@ -1052,7 +1057,7 @@
   const HANDLER_WIDTH = 1.15;
   const HAND_AXIS_ANGLE = Math.atan2(CUFF_CUT.y - HAND_ANCHOR.y, CUFF_CUT.x - HAND_ANCHOR.x);
   const ARM_AXIS = { x: .6, y: -.8 };
-  const SHOULDER_X = W / 2, SHOULDER_Y = 130;
+  const SHOULDER_X = W / 2, SHOULDER_Y = 155;
   const SHOULDER_TRAVEL = 76, AIM_REACH = 178.6;
   const UPPER_ARM = 78, FOREARM = 63, ARM_REACH = UPPER_ARM + FOREARM - .4;
   // Both rigid sleeve pieces gain the same fixed width. Their longitudinal
@@ -1167,18 +1172,18 @@
     if (handlerWalk.amount < .005) handlerWalk.amount = 0;
   }
   function drawHandlerLeg(near, stride, amount) {
-    const swing = near ? -stride : stride, hipX = near ? 805 : 445, hipY = 1200;
-    const lift = Math.max(0, swing) * 12;
+    const swing = near ? -stride : stride, hipX = near ? 475 : 330, hipY = 590;
+    const lift = Math.max(0, swing) * 6;
     ctx.save(); ctx.translate(hipX, hipY - lift); ctx.rotate(swing * .15);
     ctx.translate(-hipX, -hipY);
     // Follow the cartoon sprite's hips and crotch. The pelvis is drawn
     // over both moving pieces so the hips stay attached throughout the stride.
     ctx.beginPath();
-    ctx.moveTo(near ? 1024 : 0, 1170); ctx.lineTo(632, 1170);
-    ctx.lineTo(632, 1300); ctx.lineTo(620, 1400); ctx.lineTo(600, 1536);
-    ctx.lineTo(near ? 1024 : 0, 1536); ctx.closePath(); ctx.clip();
+    ctx.moveTo(near ? 800 : 0, 570); ctx.lineTo(430, 570);
+    ctx.lineTo(433, 665); ctx.lineTo(411, 800); ctx.lineTo(392, 944);
+    ctx.lineTo(near ? 800 : 0, 944); ctx.closePath(); ctx.clip();
     ctx.globalAlpha *= near ? 1 : 1 - amount * .10;
-    ctx.drawImage(BODY_SURFACE, 0, 0, 1024, 1536); ctx.restore();
+    ctx.drawImage(BODY_SURFACE, 0, 0); ctx.restore();
   }
   function clipHoldInterior(paint) {
     // Trace the dark opening inside the illustrated metal lining. Coordinates
@@ -1198,39 +1203,129 @@
     paint.lineTo(326, 225); paint.lineTo(349, 225); paint.closePath();
     paint.restore(); paint.clip();
   }
-  function drawHandlerBody(pose) {
-    if (!BODY_ART.complete || !BODY_ART.naturalWidth) return;
-    const shoulderX = 780, shoulderY = 455, scale = .17;
-    if (!bodyBaked) {
-      const paint = BODY_SURFACE.getContext("2d");
-      paint.drawImage(BODY_ART, 0, 0, 512, 768);
-      // One shared shade across the torso and shoulder avoids a black patch
-      // at the joint, while keeping the whole figure deeper in the hold.
-      paint.globalCompositeOperation = "source-atop";
-      paint.fillStyle = `rgba(1,4,7,${HANDLER_SHADOW})`; paint.fillRect(0, 0, 512, 768);
-      paint.globalCompositeOperation = "destination-in";
-      const fade = paint.createLinearGradient(0, 0, 0, 768);
-      fade.addColorStop(0, "rgba(0,0,0,1)"); fade.addColorStop(.76, "rgba(0,0,0,1)");
-      fade.addColorStop(1, "rgba(0,0,0,0)");
-      paint.fillStyle = fade; paint.fillRect(0, 0, 512, 768);
-      paint.globalCompositeOperation = "source-over"; bodyBaked = true;
+  function bakeRetroHandler() {
+    if (bodyBaked) return true;
+    if (![BODY_ART, SLEEVE_ART, HAND_ART].every(art => art.complete && art.naturalWidth)) return false;
+    const paint = BODY_SURFACE.getContext("2d");
+    // Sample the approved face, blouson and trousers from the design sheet.
+    // The source arms, luggage, rail and presentation board are outside this
+    // atlas mask; the free hand is rendered separately in a balance gesture.
+    paint.save(); paint.beginPath();
+    paint.moveTo(230, 110); paint.lineTo(478, 110); paint.lineTo(506, 260);
+    paint.lineTo(564, 284); paint.lineTo(578, 334); paint.lineTo(546, 412);
+    paint.lineTo(556, 466); paint.lineTo(576, 538); paint.lineTo(550, 591);
+    paint.lineTo(542, 944); paint.lineTo(132, 951); paint.lineTo(130, 875);
+    paint.lineTo(225, 810); paint.lineTo(223, 680); paint.lineTo(239, 600);
+    paint.lineTo(291, 518); paint.lineTo(284, 454); paint.lineTo(280, 383);
+    paint.lineTo(261, 333); paint.lineTo(252, 309); paint.lineTo(235, 285);
+    paint.lineTo(235, 206); paint.closePath(); paint.clip();
+    paint.drawImage(BODY_ART, 0, 0); paint.restore();
+    // Chroma-key the warm paper within the atlas silhouette once on load.
+    // Neutral reflective stripes and warm skin do not match the paper key.
+    const pixels = paint.getImageData(0, 0, 1536, 1024), rgba = pixels.data;
+    const visited = new Uint8Array(1536 * 1024), queue = new Int32Array(1536 * 1024);
+    let head = 0, tail = 0;
+    function visit(x, y) {
+      if (x < 128 || x > 582 || y < 108 || y > 952) return;
+      const pixel = y * 1536 + x, i = pixel * 4;
+      if (visited[pixel]) return;
+      visited[pixel] = 1;
+      const r = rgba[i], g = rgba[i + 1], b = rgba[i + 2];
+      const stripe = x > 295 && x < 558 && y > 429 && y < 525;
+      const paper = !stripe && r > 207 && g > 200 && b > 187 && r - b >= 2 && g >= b && r - b < 60;
+      if (rgba[i + 3] && !paper) return;
+      rgba[i + 3] = 0; queue[tail++] = pixel;
     }
+    for (let x = 128; x <= 582; x++) { visit(x, 108); visit(x, 952); }
+    for (let y = 109; y < 952; y++) { visit(128, y); visit(582, y); }
+    while (head < tail) {
+      const pixel = queue[head++], x = pixel % 1536, y = Math.floor(pixel / 1536);
+      visit(x - 1, y); visit(x + 1, y); visit(x, y - 1); visit(x, y + 1);
+    }
+    // Unmatte the antialiased ink edge against the paper so it cannot leave
+    // a pale fringe around the cap, moustache or trousers inside the hold.
+    const edgeAlpha = new Uint8ClampedArray(rgba.length / 4);
+    for (let i = 3; i < rgba.length; i += 4) edgeAlpha[i >> 2] = rgba[i];
+    for (let y = 111; y < 952; y++) for (let x = 130; x < 580; x++) {
+      const pixel = y * 1536 + x, i = pixel * 4;
+      if (!edgeAlpha[pixel]) continue;
+      const border = !edgeAlpha[pixel - 1] || !edgeAlpha[pixel + 1] ||
+        !edgeAlpha[pixel - 1536] || !edgeAlpha[pixel + 1536];
+      const hi = Math.max(rgba[i], rgba[i + 1], rgba[i + 2]);
+      const lo = Math.min(rgba[i], rgba[i + 1], rgba[i + 2]);
+      if (border && hi - lo < 65 && hi > 45) {
+        rgba[i + 3] *= Math.max(0, Math.min(1, (246 - hi) / 220));
+        rgba[i] = 12; rgba[i + 1] = 17; rgba[i + 2] = 20;
+      }
+    }
+    paint.putImageData(pixels, 0, 0);
+
+    // A compact, slightly bent far arm counterbalances the working arm.
+    // Its two rigid sleeve pieces share the same art and width as the front arm.
+    const free = FREE_ARM_SURFACE.getContext("2d");
+    const sx = FREE_SHOULDER.x, sy = FREE_SHOULDER.y, hx = 125, hy = 565;
+    const upper = 145, fore = 130, dx = hx - sx, dy = hy - sy, distance = Math.hypot(dx, dy);
+    const along = (upper * upper - fore * fore + distance * distance) / (2 * distance);
+    const height = Math.sqrt(Math.max(0, upper * upper - along * along));
+    const ex = sx + dx / distance * along - dy / distance * height;
+    const ey = sy + dy / distance * along + dx / distance * height;
+    const handScale = HAND_SCALE * .8 / BODY_SCALE;
+    const cuffLength = Math.hypot(CUFF_CUT.x - HAND_ANCHOR.x, CUFF_CUT.y - HAND_ANCHOR.y) * handScale;
+    const sleeveScale = (upper + fore - cuffLength) / (SLEEVE_WRIST - SLEEVE_TOP);
+    const elbow = SLEEVE_TOP + upper / sleeveScale;
+    const upperAngle = Math.atan2(ey - sy, ex - sx), foreAngle = Math.atan2(hy - ey, hx - ex);
+    function piece(anchor, from, to, x, y, angle) {
+      free.save(); free.translate(x, y); free.rotate(angle - Math.PI / 2);
+      free.translate(13.5 * handScale * HANDLER_WIDTH, 0);
+      free.scale(sleeveScale * HANDLER_WIDTH, sleeveScale); free.translate(-SLEEVE_X, -anchor);
+      free.beginPath(); free.rect(352, from, 328, to - from); free.clip();
+      free.drawImage(SLEEVE_ART, 0, 0); free.restore();
+    }
+    const overlap = 5 / BODY_SCALE / sleeveScale;
+    piece(SLEEVE_TOP, SLEEVE_TOP, elbow + overlap, sx, sy, upperAngle);
+    piece(elbow, elbow - overlap, SLEEVE_WRIST + 2, ex, ey, foreAngle);
+    free.save(); free.translate(hx, hy);
+    free.rotate(Math.atan2(ey - hy, ex - hx) - HAND_AXIS_ANGLE);
+    free.scale(handScale, handScale);
+    free.rotate(HAND_AXIS_ANGLE); free.scale(1, HANDLER_WIDTH); free.rotate(-HAND_AXIS_ANGLE);
+    free.translate(-HAND_ANCHOR.x, -HAND_ANCHOR.y); clipArmSlice(-1000, 2, 550, free);
+    free.drawImage(HAND_ART, HAND_FRAME, 0, HAND_FRAME, HAND_FRAME, 0, 0, HAND_FRAME, HAND_FRAME);
+    free.restore();
+    for (const layer of [paint, free]) {
+      layer.globalCompositeOperation = "source-atop";
+      layer.fillStyle = `rgba(1,4,7,${HANDLER_SHADOW})`; layer.fillRect(0, 0, 1536, 1024);
+      layer.globalCompositeOperation = "destination-in";
+      const fade = layer.createLinearGradient(0, 0, 0, 1024);
+      fade.addColorStop(0, "rgba(0,0,0,1)"); fade.addColorStop(.78, "rgba(0,0,0,1)");
+      fade.addColorStop(1, "rgba(0,0,0,0)");
+      layer.fillStyle = fade; layer.fillRect(0, 0, 1536, 1024);
+      layer.globalCompositeOperation = "source-over";
+    }
+    bodyBaked = true; return true;
+  }
+  function drawHandlerBody(pose) {
+    if (!bakeRetroHandler()) return;
+    const shoulderX = 535, shoulderY = 330;
     const rootX = handlerBodyX(pose);
     const reach = Math.max(-1, Math.min(1, (rootX - SHOULDER_X) / SHOULDER_TRAVEL));
     // The body always faces left. The same near shoulder is the common pivot:
     // a small lean accompanies the reach, without swapping arms or stretching.
     const amount = preferences.motion ? handlerWalk.amount : 0;
     const stride = Math.sin(handlerWalk.phase) * amount;
-    const lean = (reach < 0 ? reach * .20 : reach * .045) + stride * .012;
+    const lean = -.55 + (reach < 0 ? reach * .12 : reach * .045) + stride * .012;
     ctx.save(); clipHoldInterior(ctx);
     ctx.translate(rootX, SHOULDER_Y); ctx.rotate(lean);
-    ctx.scale(scale, scale); ctx.translate(-shoulderX, -shoulderY);
-    if (amount > 0) {
-      drawHandlerLeg(false, stride, amount); drawHandlerLeg(true, stride, amount);
-      ctx.drawImage(BODY_SURFACE, 0, 0, 512, 630, 0, 0, 1024, 1260);
-    } else {
-      ctx.drawImage(BODY_SURFACE, 0, 0, 1024, 1536);
-    }
+    ctx.scale(BODY_SCALE, BODY_SCALE); ctx.translate(-shoulderX, -shoulderY);
+    ctx.save(); ctx.translate(FREE_SHOULDER.x, FREE_SHOULDER.y);
+    ctx.rotate(.07 - reach * .04 - stride * .055);
+    ctx.translate(-FREE_SHOULDER.x, -FREE_SHOULDER.y);
+    ctx.drawImage(FREE_ARM_SURFACE, 0, 0); ctx.restore();
+    // The upper body leans into the load while the pelvis keeps both legs
+    // underneath it. Only actual sideways travel drives the walking swing.
+    ctx.save(); ctx.translate(430, 570); ctx.rotate(.55); ctx.translate(-430, -570);
+    drawHandlerLeg(false, stride, amount); drawHandlerLeg(true, stride, amount);
+    ctx.restore();
+    ctx.drawImage(BODY_SURFACE, 0, 0, 1536, 612, 0, 0, 1536, 612);
     ctx.restore();
   }
   function drawHandlerSleeve(pose) {
