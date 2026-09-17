@@ -988,19 +988,21 @@
   SLEEVE_ART.src = "/assets/handler/sleeve-tailored-v1.webp";
   const BODY_ART = new Image();
   BODY_ART.src = "/assets/handler/body-left-facing-v3.webp";
-  const HANDLER_SHADOW = .86;
+  const HANDLER_SHADOW = .88;
   const BODY_SURFACE = document.createElement("canvas");
   BODY_SURFACE.width = 512; BODY_SURFACE.height = 768;
   let bodyBaked = false;
   const HAND_FRAME = 887, HAND_SCALE = 78 / HAND_FRAME;
   const HAND_ANCHOR = { x: 325, y: 706 };
   const CUFF_CUT = { x: 455, y: 505 };
+  const HANDLER_WIDTH = 1.15;
+  const HAND_AXIS_ANGLE = Math.atan2(CUFF_CUT.y - HAND_ANCHOR.y, CUFF_CUT.x - HAND_ANCHOR.x);
   const ARM_AXIS = { x: .6, y: -.8 };
   const SHOULDER_X = W / 2, SHOULDER_Y = 130;
   const SHOULDER_TRAVEL = 76, AIM_REACH = 178.6;
   const UPPER_ARM = 78, FOREARM = 63, ARM_REACH = UPPER_ARM + FOREARM - .4;
-  // The sleeve is drawn at its final aspect ratio. Both rigid pieces use one
-  // uniform scale, preserving the proportions of every fold and reflective band.
+  // Both rigid sleeve pieces gain the same fixed width. Their longitudinal
+  // scale stays unchanged, so the arm never grows longer when aiming.
   const SLEEVE_X = 516, SLEEVE_TOP = 64, SLEEVE_WRIST = 1414;
   const CUFF_LENGTH = Math.hypot(CUFF_CUT.x - HAND_ANCHOR.x, CUFF_CUT.y - HAND_ANCHOR.y) * HAND_SCALE;
   const SLEEVE_SCALE = (UPPER_ARM + FOREARM - CUFF_LENGTH) / (SLEEVE_WRIST - SLEEVE_TOP);
@@ -1081,8 +1083,8 @@
   }
   function drawSleevePiece(anchorY, fromY, toY, x, y, angle) {
     armCtx.save(); armCtx.translate(x, y); armCtx.rotate(angle - Math.PI / 2);
-    armCtx.translate(13.5 * HAND_SCALE, 0);
-    armCtx.scale(SLEEVE_SCALE, SLEEVE_SCALE);
+    armCtx.translate(13.5 * HAND_SCALE * HANDLER_WIDTH, 0);
+    armCtx.scale(SLEEVE_SCALE * HANDLER_WIDTH, SLEEVE_SCALE);
     armCtx.translate(-SLEEVE_X, -anchorY);
     armCtx.beginPath(); armCtx.rect(352, fromY, 328, toY - fromY); armCtx.clip();
     armCtx.drawImage(SLEEVE_ART, 0, 0); armCtx.restore();
@@ -1165,10 +1167,10 @@
     const foreAngle = Math.atan2(pose.y - pose.elbowY, pose.x - pose.elbowX);
     const bend = Math.atan2(Math.sin(foreAngle - upperAngle), Math.cos(foreAngle - upperAngle));
     armCtx.setTransform(2, 0, 0, 2, 0, 0); armCtx.clearRect(0, 0, W, BASE_H);
-    // A small cloth patch covers the inside of the joint as the two unwarped
-    // pieces rotate. Their common scale never depends on the aiming direction.
-    armCtx.save(); armCtx.beginPath(); armCtx.arc(pose.elbowX, pose.elbowY, 16, 0, Math.PI * 2); armCtx.clip();
-    drawSleevePiece(SLEEVE_ELBOW, SLEEVE_ELBOW - 16 / SLEEVE_SCALE, SLEEVE_ELBOW + 16 / SLEEVE_SCALE,
+    // The joint cover follows the sleeve's fixed width as both pieces rotate.
+    const jointRadius = 16 * HANDLER_WIDTH;
+    armCtx.save(); armCtx.beginPath(); armCtx.arc(pose.elbowX, pose.elbowY, jointRadius, 0, Math.PI * 2); armCtx.clip();
+    drawSleevePiece(SLEEVE_ELBOW, SLEEVE_ELBOW - jointRadius / SLEEVE_SCALE, SLEEVE_ELBOW + jointRadius / SLEEVE_SCALE,
       pose.elbowX, pose.elbowY, upperAngle + bend / 2); armCtx.restore();
     drawSleevePiece(SLEEVE_TOP, SLEEVE_TOP, SLEEVE_ELBOW + SLEEVE_OVERLAP, pose.rootX, pose.rootY, upperAngle);
     drawSleevePiece(SLEEVE_ELBOW, SLEEVE_ELBOW - SLEEVE_OVERLAP, SLEEVE_WRIST + 2, pose.elbowX, pose.elbowY, foreAngle);
@@ -1177,7 +1179,7 @@
     const upperShade = armCtx.createRadialGradient(pose.rootX, pose.rootY, 0, pose.rootX, pose.rootY, 100);
     upperShade.addColorStop(0, `rgba(1,4,7,${HANDLER_SHADOW})`);
     upperShade.addColorStop(.3, `rgba(1,4,7,${HANDLER_SHADOW})`);
-    upperShade.addColorStop(.65, "rgba(1,4,7,.68)"); upperShade.addColorStop(1, "rgba(1,4,7,0)");
+    upperShade.addColorStop(.65, "rgba(1,4,7,.70)"); upperShade.addColorStop(1, "rgba(1,4,7,0)");
     armCtx.fillStyle = upperShade; armCtx.fillRect(0, 0, W, BASE_H); armCtx.restore();
     // Fade the assembled sleeve into the doorway without exposing joint seams.
     armCtx.save(); armCtx.globalCompositeOperation = "destination-in";
@@ -1196,6 +1198,8 @@
   function drawHandlerHand(pose) {
     if (!pose || !HAND_ART.complete || !HAND_ART.naturalWidth) return;
     ctx.save(); ctx.translate(pose.x, pose.y); ctx.rotate(pose.angle); ctx.scale(HAND_SCALE, HAND_SCALE);
+    // Broaden across the palm and cuff, keeping the grip and wrist axis fixed.
+    ctx.rotate(HAND_AXIS_ANGLE); ctx.scale(1, HANDLER_WIDTH); ctx.rotate(-HAND_AXIS_ANGLE);
     ctx.translate(-HAND_ANCHOR.x, -HAND_ANCHOR.y);
     clipArmSlice(-1000, 2, 550);
     // Only the fingers change pose. The cuff and the drawn sleeve stay aligned.
