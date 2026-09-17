@@ -1,5 +1,5 @@
-const CACHE = "baggage-jam-retro-handler-v9";
-const SHELL = ["/", "/index.html", "/assets/ui/baggage-jam-icon-v2.png", "/assets/ui/baggage-jam-wordmark-v2.webp", "/assets/bags/bag-04-green-hd.webp", "/assets/bags/bag-06-apple-coral-hd.webp", "/manifest.json", "/assets/bags/bag-01-hd.webp", "/assets/bags/bag-02-hd.webp", "/assets/bags/bag-03-hd.webp", "/assets/handler/hands-retro-v1.webp", "/assets/handler/sleeve-retro-v1.webp", "/assets/handler/body-retro-v1.webp", "/assets/scenes/raised-cargo-hold.webp"];
+const CACHE = "baggage-jam-original-balance-v10";
+const SHELL = ["/", "/index.html", "/assets/ui/baggage-jam-icon-v2.png", "/assets/ui/baggage-jam-wordmark-v2.webp", "/assets/bags/bag-04-green-hd.webp", "/assets/bags/bag-06-apple-coral-hd.webp", "/manifest.json", "/assets/bags/bag-01-hd.webp", "/assets/bags/bag-02-hd.webp", "/assets/bags/bag-03-hd.webp", "/assets/handler/hands-retro-v1.webp", "/assets/handler/balance-original-v1.webp", "/assets/scenes/raised-cargo-hold.webp"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
