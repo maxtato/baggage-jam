@@ -988,6 +988,7 @@
   SLEEVE_ART.src = "/assets/handler/sleeve-tailored-v1.webp";
   const BODY_ART = new Image();
   BODY_ART.src = "/assets/handler/body-left-facing-v3.webp";
+  const HANDLER_SHADOW = .86;
   const BODY_SURFACE = document.createElement("canvas");
   BODY_SURFACE.width = 512; BODY_SURFACE.height = 768;
   let bodyBaked = false;
@@ -1129,21 +1130,10 @@
     if (!bodyBaked) {
       const paint = BODY_SURFACE.getContext("2d");
       paint.drawImage(BODY_ART, 0, 0, 512, 768);
-      // Keep the cartoon jacket readable while joining the near shoulder
-      // to the shaded animated sleeve in the foreground.
+      // One shared shade across the torso and shoulder avoids a black patch
+      // at the joint, while keeping the whole figure deeper in the hold.
       paint.globalCompositeOperation = "source-atop";
-      const darkness = paint.createLinearGradient(0, 0, 0, 768);
-      darkness.addColorStop(0, "rgba(1,4,7,.82)");
-      darkness.addColorStop(.65, "rgba(1,4,7,.82)");
-      darkness.addColorStop(.82, "rgba(1,4,7,.76)");
-      darkness.addColorStop(1, "rgba(1,4,7,.76)");
-      paint.fillStyle = darkness; paint.fillRect(0, 0, 512, 768);
-      const attachment = paint.createRadialGradient(shoulderX / 2, shoulderY / 2, 0,
-        shoulderX / 2, shoulderY / 2, 130);
-      attachment.addColorStop(0, "rgba(1,4,7,.96)");
-      attachment.addColorStop(.60, "rgba(1,4,7,.96)");
-      attachment.addColorStop(1, "rgba(1,4,7,0)");
-      paint.fillStyle = attachment; paint.fillRect(0, 0, 512, 768);
+      paint.fillStyle = `rgba(1,4,7,${HANDLER_SHADOW})`; paint.fillRect(0, 0, 512, 768);
       paint.globalCompositeOperation = "destination-in";
       const fade = paint.createLinearGradient(0, 0, 0, 768);
       fade.addColorStop(0, "rgba(0,0,0,1)"); fade.addColorStop(.76, "rgba(0,0,0,1)");
@@ -1182,11 +1172,12 @@
       pose.elbowX, pose.elbowY, upperAngle + bend / 2); armCtx.restore();
     drawSleevePiece(SLEEVE_TOP, SLEEVE_TOP, SLEEVE_ELBOW + SLEEVE_OVERLAP, pose.rootX, pose.rootY, upperAngle);
     drawSleevePiece(SLEEVE_ELBOW, SLEEVE_ELBOW - SLEEVE_OVERLAP, SLEEVE_WRIST + 2, pose.elbowX, pose.elbowY, foreAngle);
-    // Darken the upper sleeve itself, keeping its folds visible in the hold.
+    // Match the body at the shoulder, then emerge gradually from the hold's shade.
     armCtx.save(); armCtx.globalCompositeOperation = "source-atop";
-    const upperShade = armCtx.createRadialGradient(pose.rootX, pose.rootY, 0, pose.rootX, pose.rootY, 96);
-    upperShade.addColorStop(0, "rgba(1,4,7,.96)"); upperShade.addColorStop(.3, "rgba(1,4,7,.85)");
-    upperShade.addColorStop(.65, "rgba(1,4,7,.5)"); upperShade.addColorStop(1, "rgba(1,4,7,0)");
+    const upperShade = armCtx.createRadialGradient(pose.rootX, pose.rootY, 0, pose.rootX, pose.rootY, 100);
+    upperShade.addColorStop(0, `rgba(1,4,7,${HANDLER_SHADOW})`);
+    upperShade.addColorStop(.3, `rgba(1,4,7,${HANDLER_SHADOW})`);
+    upperShade.addColorStop(.65, "rgba(1,4,7,.68)"); upperShade.addColorStop(1, "rgba(1,4,7,0)");
     armCtx.fillStyle = upperShade; armCtx.fillRect(0, 0, W, BASE_H); armCtx.restore();
     // Fade the assembled sleeve into the doorway without exposing joint seams.
     armCtx.save(); armCtx.globalCompositeOperation = "destination-in";
