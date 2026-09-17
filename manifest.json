@@ -6,22 +6,19 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#fffaf0",
-  "theme_color": "#fffaf0",
+  "background_color": "#d3ebdf",
+  "theme_color": "#d3ebdf",
   "lang": "fr",
-  "categories": ["games", "entertainment"],
+  "categories": [
+    "games",
+    "entertainment"
+  ],
   "icons": [
     {
-      "src": "/apple-icon.png",
+      "src": "/assets/ui/baggage-jam-icon-v2.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "/apple-icon.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
     }
   ]
 }
