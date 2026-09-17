@@ -477,6 +477,7 @@
   let currentX = W / 2;
   let spawnTimer = 0, flickVX = 0;
   let handlerClock = 0, handlerArrival = 0, handlerRelease = null;
+  const handlerWalk = { x: null, phase: 0, amount: 0 };
   let livesLeft = LIVES;
   let nearSpill = false;
   let flashT = 0, shakeT = 0;
@@ -1085,6 +1086,43 @@
     armCtx.beginPath(); armCtx.rect(352, fromY, 328, toY - fromY); armCtx.clip();
     armCtx.drawImage(SLEEVE_ART, 0, 0); armCtx.restore();
   }
+  function handlerBodyX(pose) {
+    return pose ? pose.rootX : handlerRelease ? handlerRelease.rootX
+      : heldBagLayout(curLevel || nextLevel).rootX;
+  }
+  function resetHandlerWalk() {
+    handlerWalk.x = null; handlerWalk.phase = 0; handlerWalk.amount = 0;
+  }
+  function updateHandlerWalk(dt) {
+    const x = handlerBodyX(handlerPose());
+    if (!preferences.motion || handlerWalk.x === null || dt <= 0) {
+      resetHandlerWalk(); handlerWalk.x = x; return;
+    }
+    const travel = x - handlerWalk.x;
+    handlerWalk.x = x;
+    // Distance drives the steps, so standing still never becomes walking in place.
+    // Reversing direction reverses the stride without snapping the leg poses.
+    const distance = Math.abs(travel) < .04 ? 0 : travel;
+    handlerWalk.phase = (handlerWalk.phase + distance * Math.PI / 26) % (Math.PI * 2);
+    const target = Math.min(1, Math.abs(distance) / dt / 65);
+    const response = target > handlerWalk.amount ? 24 : 14;
+    handlerWalk.amount += (target - handlerWalk.amount) * (1 - Math.exp(-dt * response));
+    if (handlerWalk.amount < .005) handlerWalk.amount = 0;
+  }
+  function drawHandlerLeg(near, stride, amount) {
+    const swing = near ? -stride : stride, hipX = near ? 738 : 406, hipY = 1038;
+    const lift = Math.max(0, swing) * 12;
+    ctx.save(); ctx.translate(hipX, hipY - lift); ctx.rotate(swing * .15);
+    ctx.translate(-hipX, -hipY);
+    // Separate the original trouser legs at the crotch. The pelvis is drawn
+    // over both moving pieces so the hips stay attached throughout the stride.
+    ctx.beginPath();
+    ctx.moveTo(near ? 1024 : 0, 1010); ctx.lineTo(568, 1010);
+    ctx.lineTo(568, 1118); ctx.lineTo(548, 1240); ctx.lineTo(535, 1536);
+    ctx.lineTo(near ? 1024 : 0, 1536); ctx.closePath(); ctx.clip();
+    ctx.globalAlpha *= near ? 1 : 1 - amount * .10;
+    ctx.drawImage(BODY_SURFACE, 0, 0, 1024, 1536); ctx.restore();
+  }
   function drawHandlerBody(pose) {
     if (!BODY_ART.complete || !BODY_ART.naturalWidth) return;
     const shoulderX = 780, shoulderY = 455, scale = .17;
@@ -1094,7 +1132,12 @@
       // Keep the cartoon jacket readable while joining the near shoulder
       // to the shaded animated sleeve in the foreground.
       paint.globalCompositeOperation = "source-atop";
-      paint.fillStyle = "rgba(1,4,7,.70)"; paint.fillRect(0, 0, 512, 768);
+      const darkness = paint.createLinearGradient(0, 0, 0, 768);
+      darkness.addColorStop(0, "rgba(1,4,7,.82)");
+      darkness.addColorStop(.65, "rgba(1,4,7,.82)");
+      darkness.addColorStop(.82, "rgba(1,4,7,.76)");
+      darkness.addColorStop(1, "rgba(1,4,7,.76)");
+      paint.fillStyle = darkness; paint.fillRect(0, 0, 512, 768);
       const attachment = paint.createRadialGradient(shoulderX / 2, shoulderY / 2, 0,
         shoulderX / 2, shoulderY / 2, 130);
       attachment.addColorStop(0, "rgba(1,4,7,.96)");
@@ -1108,16 +1151,23 @@
       paint.fillStyle = fade; paint.fillRect(0, 0, 512, 768);
       paint.globalCompositeOperation = "source-over"; bodyBaked = true;
     }
-    const rootX = pose ? pose.rootX : handlerRelease ? handlerRelease.rootX
-      : heldBagLayout(curLevel || nextLevel).rootX;
+    const rootX = handlerBodyX(pose);
     const reach = Math.max(-1, Math.min(1, (rootX - SHOULDER_X) / SHOULDER_TRAVEL));
     // The body always faces left. The same near shoulder is the common pivot:
     // a small lean accompanies the reach, without swapping arms or stretching.
-    const lean = reach < 0 ? reach * .20 : reach * .045;
+    const amount = preferences.motion ? handlerWalk.amount : 0;
+    const stride = Math.sin(handlerWalk.phase) * amount;
+    const lean = (reach < 0 ? reach * .20 : reach * .045) + stride * .012;
     ctx.save(); ctx.beginPath(); ctx.roundRect(113, 106, 219, 248, 16); ctx.clip();
     ctx.translate(rootX, SHOULDER_Y); ctx.rotate(lean);
-    ctx.drawImage(BODY_SURFACE, -shoulderX * scale, -shoulderY * scale,
-      1024 * scale, 1536 * scale); ctx.restore();
+    ctx.scale(scale, scale); ctx.translate(-shoulderX, -shoulderY);
+    if (amount > 0) {
+      drawHandlerLeg(false, stride, amount); drawHandlerLeg(true, stride, amount);
+      ctx.drawImage(BODY_SURFACE, 0, 0, 512, 558, 0, 0, 1024, 1116);
+    } else {
+      ctx.drawImage(BODY_SURFACE, 0, 0, 1024, 1536);
+    }
+    ctx.restore();
   }
   function drawHandlerSleeve(pose) {
     if (!pose || !SLEEVE_ART.complete || !SLEEVE_ART.naturalWidth) return;
@@ -1430,7 +1480,7 @@
     lastMergeAt = -Infinity; comboUntil = 0; acc = 0;
     score = 0; updateScore(); livesLeft = LIVES; buildLives();
     nearSpill = false; flashT = 0; shakeT = 0; spawnTimer = 0;
-    handlerClock = 0; handlerRelease = null;
+    handlerClock = 0; handlerRelease = null; resetHandlerWalk();
     stage.classList.remove("danger"); currentX = W / 2;
     nextLevel = 4; spawnCurrent(); state = "playing"; runAvailable = true;
     hideDialogs(); $("hud").classList.remove("hidden");
@@ -1535,6 +1585,7 @@
     $("settingHaptics").setAttribute("aria-checked", String(preferences.haptics));
     $("hapticRow").classList.toggle("hidden", typeof navigator.vibrate !== "function");
     if (!preferences.motion) {
+      resetHandlerWalk();
       parts.length = 0; rings.length = 0; impacts.length = 0; flashT = 0; shakeT = 0;
       for (const b of allBags()) { b._trail.length = 0; b._sq = null; }
       positionScenery(); sceneMoved = false;
@@ -1717,7 +1768,7 @@
       while (acc >= STEP && steps < 8) { settleGroundBags(); Engine.update(engine, STEP); acc -= STEP; steps++; }
       processMerges(t); checkSpills(t);
       if (state === "playing" && curLevel === 0) { spawnTimer -= dt; if (spawnTimer <= 0) spawnCurrent(); }
-      updateFX(dt, t); render(t);
+      updateHandlerWalk(dt); updateFX(dt, t); render(t);
     } else if (state === "over") {
       const progress = preferences.motion ? Math.min(1, (t - resultStarted) / 800) : 1;
       const value = Math.round(resultFrom + (resultTarget - resultFrom) * (1 - Math.pow(1 - progress, 3)));
