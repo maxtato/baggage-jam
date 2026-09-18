@@ -5,8 +5,8 @@
   const smooth=(a,b,x)=>{const t=clamp((x-a)/(b-a));return t*t*(3-2*t);};
   function launch(targetX,level=1,{gravity=4480}={}){
     // End on a 120 Hz physics tick, so the handover cannot add a second step.
-    const duration=Math.round((.70+clamp(Math.abs(targetX-ORIGIN.x)/340)*.04)*120)/120;
-    const drag=.005*60,initialVy=-700,exitVy=1625;
+    const duration=Math.round((.78+clamp(Math.abs(targetX-ORIGIN.x)/340)*.04)*120)/120;
+    const drag=.005*60,initialVy=-625,exitVy=1625;
     // A longer, lower arc with a controlled exit speed. Match both velocity and
     // acceleration to free fall, without hitting the game's speed cap on arrival.
     const c1=initialVy*duration,c2=gravity*.72*duration*duration/2;
@@ -45,12 +45,9 @@
   }
   function drawArrow(c,x,y,{floor=1400,width=128,active=false}={}){
     c.save();c.globalAlpha=active?.3:1;c.lineJoin='round';c.lineCap='round';
-    c.save();c.globalAlpha*=.25;c.strokeStyle='#202821';c.lineWidth=2.5;c.setLineDash([5,13]);
-    c.beginPath();c.moveTo(x,y+14);c.lineTo(x,Math.max(y+14,floor-10));c.stroke();c.setLineDash([]);
-    c.fillStyle='#202821';c.beginPath();c.ellipse(x,floor-5,Math.min(44,width*.34),6,0,0,Math.PI*2);c.fill();c.restore();
     c.translate(x,y);c.beginPath();c.moveTo(-12,-64);c.lineTo(12,-64);c.lineTo(12,-32);c.lineTo(29,-32);
     c.lineTo(0,0);c.lineTo(-29,-32);c.lineTo(-12,-32);c.closePath();
-    c.fillStyle='#f4c340';c.strokeStyle='#202821';c.lineWidth=6;c.fill();c.stroke();
+    c.fillStyle='#f4c340';c.strokeStyle='#202821';c.lineWidth=3;c.fill();c.stroke();
     c.strokeStyle='#fff4c2';c.lineWidth=3;c.beginPath();c.moveTo(-6,-55);c.lineTo(-6,-27);c.lineTo(-17,-27);c.stroke();c.restore();
   }
   function createRenderer(createCanvas){

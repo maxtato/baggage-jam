@@ -1,4 +1,4 @@
-const CACHE = "baggage-jam-faster-descent-v19";
+const CACHE = "baggage-jam-immediate-preview-v20";
 const SHELL = ["/", "/index.html", "/assets/ui/baggage-jam-icon-v2.png", "/assets/ui/baggage-jam-wordmark-v2.webp", "/assets/bags/bag-04-green-hd.webp", "/assets/bags/bag-06-apple-coral-hd.webp", "/manifest.json", "/assets/cargo-throw-v1.js", "/assets/bags/bag-01-hd.webp", "/assets/bags/bag-02-hd.webp", "/assets/bags/bag-03-hd.webp", "/assets/scenes/raised-cargo-hold.webp"];
 
 self.addEventListener("install", (e) => {
