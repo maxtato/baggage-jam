@@ -1,5 +1,5 @@
 const assert = require('assert/strict');
-const { game:t, step, context } = require('./handler.cjs');
+const { game:t, step, context } = require('./cargo-throw.cjs');
 context.innerWidth=390; context.innerHeight=844; t.resize();
 t.setPrefs({motion:false});
 
