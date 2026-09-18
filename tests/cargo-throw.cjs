@@ -36,6 +36,7 @@ class FakeImage extends Element {constructor(){super('img');this.complete=false;
 const context={console,document,Image:FakeImage,localStorage:{getItem:k=>saved.get(k),setItem:(k,v)=>saved.set(k,v)},navigator:{},performance:{now:()=>now},setTimeout:()=>1,clearTimeout(){},requestAnimationFrame(){},requestIdleCallback(){},innerWidth:390,innerHeight:844,devicePixelRatio:2,events:{},addEventListener(type,cb){(this.events[type]??=[]).push(cb);},matchMedia:()=>({matches:false,addEventListener(){}})};
 context.window=context;
 vm.createContext(context);
+vm.runInContext(fs.readFileSync(require('path').join(__dirname,'../assets/airport-traffic-v1.js'),'utf8'),context);
 vm.runInContext(fs.readFileSync(require('path').join(__dirname,'../assets/cargo-throw-v1.js'),'utf8'),context);
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
 scripts.forEach((m,i)=>{
@@ -134,11 +135,12 @@ const pointer=(id,x)=>({pointerId:id,pointerType:'touch',isPrimary:true,button:0
 for(const rect of [{left:0,width:320,height:568},{left:0,width:390,height:844},{left:0,width:1363,height:936}]){
  context.innerWidth=rect.width;context.innerHeight=rect.height;t.resize();byId.get('game').rect={...rect,top:0};
  t.startGame();const screenX=(worldX)=>(t.scene.x+worldX*t.scene.scale)/t.scene.width*rect.width;
- emit(byId.get('stage'),'pointerdown',pointer(5,screenX(150)));close(t.get().currentX,150,'click positions the arrow');
- emit(context,'pointermove',pointer(5,screenX(310)));close(t.get().currentX,310,'arrow follows the pointer immediately');
+ const initial=t.get().currentX;
+ emit(byId.get('stage'),'pointerdown',pointer(5,screenX(150)));close(t.get().currentX,initial,'touch down preserves arrow position');
+ emit(context,'pointermove',pointer(5,screenX(230)));close(t.get().currentX,initial+80,'arrow follows relative finger movement');
  assert.equal(t.throwPose(),null,'bag stays hidden until release');
- emit(context,'pointerup',pointer(5,screenX(310)));assert.ok(t.throwPose());
- assert.equal(t.allBags().length,0);step(50);assert.equal(t.allBags().length,1);close(spriteCenter(t.allBags()[0]).x,310,'release locks the arrow position');
+ emit(context,'pointerup',pointer(5,screenX(230)));assert.ok(t.throwPose());
+ assert.equal(t.allBags().length,0);step(50);assert.equal(t.allBags().length,1);close(spriteCenter(t.allBags()[0]).x,initial+80,'release locks the arrow position');
 }
 byId.get('game').rect=null;t.startGame();emit(byId.get('stage'),'pointerdown',pointer(6,230));
 emit(context,'pointercancel',pointer(6,230));emit(context,'pointerup',pointer(6,230));step(60);
@@ -161,7 +163,7 @@ for(const [width,height] of [[320,568],[390,844],[430,932],[844,390],[1363,936]]
  close(t.cartBodies[2].position.y,t.getFloor()+30,'physical floor follows the artwork');
  const imageTop=t.scene.y+(819-819*1.005)*.55*t.scene.scale;
  close(imageTop,t.scene.header,'open hatch begins below the HUD');
- close(imageTop+(819*1.005+t.scene.gap)*t.scene.scale,height,'illustration ends exactly at the screen bottom');
+ close(imageTop+(819*1.005*(1435+(1550-1402)*1024/993)/1536+t.scene.gap)*t.scene.scale,height,'illustration ends exactly at the screen bottom');
 }
 console.log('PASS: full-screen portrait and landscape layouts keep the floor, bags and HUD aligned.');
 
