@@ -1,5 +1,5 @@
-const CACHE = "baggage-jam-airport-traffic-v22";
-const SHELL = ["/assets/airport-traffic-v1.js", "/assets/scenes/trolley-wheels-v2.webp", "/", "/index.html", "/assets/ui/baggage-jam-icon-v2.png", "/assets/ui/baggage-jam-wordmark-v2.webp", "/assets/bags/bag-04-green-hd.webp", "/assets/bags/bag-06-apple-coral-hd.webp", "/manifest.json", "/assets/cargo-throw-v1.js", "/assets/bags/bag-01-hd.webp", "/assets/bags/bag-02-hd.webp", "/assets/bags/bag-03-hd.webp", "/assets/scenes/airport-truck-v3.webp"];
+const CACHE = "baggage-jam-transparent-traffic-v23";
+const SHELL = ["/assets/scenes/airport-sprites-v1.webp", "/assets/airport-traffic-v1.js", "/assets/scenes/trolley-wheels-v2.webp", "/", "/index.html", "/assets/ui/baggage-jam-icon-v2.png", "/assets/ui/baggage-jam-wordmark-v2.webp", "/assets/bags/bag-04-green-hd.webp", "/assets/bags/bag-06-apple-coral-hd.webp", "/manifest.json", "/assets/cargo-throw-v1.js", "/assets/bags/bag-01-hd.webp", "/assets/bags/bag-02-hd.webp", "/assets/bags/bag-03-hd.webp", "/assets/scenes/airport-horizon-v4.webp"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
