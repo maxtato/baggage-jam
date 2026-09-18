@@ -78,6 +78,9 @@ const Flight=context.CargoThrow,sourceScale=819*1.005/1536;
 for(const targetX of [153,265,512,755,873]){
  const flight=Flight.launch(targetX,4),sample=time=>Flight.pose({...flight,elapsed:time}),h=1e-6;
  const end=sample(flight.duration),before=sample(flight.duration-h);
+ assert.ok(sample(0).shade>=.97,'luggage begins deep in the cargo shadow');
+ assert.ok(sample(flight.duration*.25).shade>.55,'shadow remains visible during emergence');
+ assert.equal(sample(flight.duration*.6).shade,0,'bag reaches full daylight before free fall');
  assert.ok(sample(0).y<400,'throw starts higher inside the hold');
  assert.ok(end.y>=900,'vertical fall begins below the fuselage');
  assert.ok(Math.abs(end.x-targetX)<1e-8&&Math.abs(end.y-Flight.DROP_Y)<1e-8);
@@ -93,7 +96,7 @@ for(const targetX of [153,265,512,755,873]){
   assert.ok(p.vy>=previousVy-1e-8,'downward speed grows continuously throughout the extended arc');
   previousVy=p.vy;
   apexY=Math.min(apexY,p.y);
-  if(p.vy<0&&p.alpha>=.9&&p.shade<.75)visibleAscent++;
+  if(p.vy<0&&p.alpha>=.9&&p.shade<.9)visibleAscent++;
   if(previousPose&&previousPose.vy>=0&&p.vy>=0){
    const distance=Math.hypot(p.x-previousPose.x,p.y-previousPose.y);
    assert.ok(distance>=previousDistance-1e-8,'equal time steps cover increasing distances throughout the downward turn');

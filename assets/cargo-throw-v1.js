@@ -24,7 +24,7 @@
     const along=t+t*t*t*(4+t*(-7+3*t));
     return {x:ORIGIN.x+dx*along,
       y:ORIGIN.y+t*(c1+t*(c2+t*(c3+t*(c4+t*c5)))),
-      scale:.5+.5*smooth(0,.72,t),alpha:smooth(0,.04,t),shade:.78*(1-smooth(0,.34,t)),
+      scale:.5+.5*smooth(0,.72,t),alpha:smooth(0,.10,t),shade:.98*(1-smooth(.02,.58,t)),
       angle:Math.sign(dx)*.15*64*(t*(1-t))**3,progress:t,
       vx:dx*(1-t)**2*(1+2*t+15*t*t)/flight.duration,
       vy:(c1+t*(2*c2+t*(3*c3+t*(4*c4+t*5*c5))))/flight.duration};
@@ -51,12 +51,20 @@
     c.strokeStyle='#fff4c2';c.lineWidth=3;c.beginPath();c.moveTo(-6,-55);c.lineTo(-6,-27);c.lineTo(-17,-27);c.stroke();c.restore();
   }
   function createRenderer(createCanvas){
-    const masks=new WeakMap();
+    const masks=new WeakMap(),edgeMasks=new WeakMap();
     function shadow(image){
       if(masks.has(image))return masks.get(image);
       const c=createCanvas(image.width,image.height),p=c.getContext('2d');p.drawImage(image,0,0);
       p.globalCompositeOperation='source-in';p.fillStyle='#020508';p.fillRect(0,0,c.width,c.height);
       masks.set(image,c);return c;
+    }
+    function depthShade(image){
+      if(edgeMasks.has(image))return edgeMasks.get(image);
+      const canvas=createCanvas(image.width,image.height),p=canvas.getContext('2d');
+      p.drawImage(image,0,0);p.globalCompositeOperation='source-in';
+      const gradient=p.createLinearGradient(0,0,image.width*.35,image.height);
+      gradient.addColorStop(0,'rgba(2,5,8,.9)');gradient.addColorStop(.5,'rgba(2,5,8,.45)');gradient.addColorStop(1,'rgba(2,5,8,0)');
+      p.fillStyle=gradient;p.fillRect(0,0,canvas.width,canvas.height);edgeMasks.set(image,canvas);return canvas;
     }
     function drawFlight(c,image,flight,width,height){
       const p=pose(flight);if(!image||!image.width)return p;
@@ -64,6 +72,10 @@
       c.globalAlpha=p.alpha;c.translate(p.x,p.y);c.rotate(p.angle);c.scale(p.scale,p.scale);
       c.drawImage(image,-width/2,-height/2,width,height);
       if(p.shade>.001){c.globalAlpha*=p.shade;c.drawImage(shadow(image),-width/2,-height/2,width,height);}
+      // The lower edge catches daylight before the upper face; both masks
+      // follow the sprite alpha, so the transparent outline stays clean.
+      const edge=p.shade*(1-p.shade)*1.6;
+      if(edge>.001){c.globalAlpha=p.alpha*edge;c.drawImage(depthShade(image),-width/2,-height/2,width,height);}
       c.restore();return p;
     }
     return{drawFlight};
