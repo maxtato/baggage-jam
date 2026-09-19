@@ -1039,8 +1039,8 @@
   const CARGO_SCALE = SCENE_IMAGE_W / 1024, CARGO_LEFT = (W-SCENE_IMAGE_W)/2;
   const cargoPainter = CargoThrow.createRenderer((w,h)=>{const c=document.createElement("canvas");c.width=w;c.height=h;return c;});
   function aimLimits(level) {
-    const half=bagW(level)/2;
-    return {min:LEFT_X+half+4,max:RIGHT_X-half-4};
+    // Aim across the full trolley width, regardless of the luggage size.
+    return {min:LEFT_X+4,max:RIGHT_X-4};
   }
   function inCargoSpace(draw) {
     ctx.save();ctx.translate(CARGO_LEFT,SCENE_IMAGE_TOP);ctx.scale(CARGO_SCALE,CARGO_SCALE);draw();ctx.restore();
